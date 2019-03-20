@@ -18,6 +18,7 @@ class FleiACFAdminColumns
     private $exclude_field_types = array(
         'tab'   => 'tab',
         'clone' => 'clone',
+        'repeater' => 'repeater'
     );
 
     private $admin_columns = array();
@@ -67,9 +68,11 @@ class FleiACFAdminColumns
 
             }
 
+            $this->admin_columns = apply_filters('acf/admin_columns/admin_columns', $this->admin_columns);
+
             if (!empty($this->admin_columns)) {
                 add_filter('manage_' . $ptype . '_posts_columns', array($this, 'filter_manage_posts_columns'));
-                add_action('manage_' . $ptype . '_posts_custom_column', array($this, 'action_manage_posts_custom_column'), 1000, 2);
+                add_action('manage_' . $ptype . '_posts_custom_column', array($this, 'action_manage_posts_custom_column'), 10, 2);
             }
         }
     }
@@ -99,7 +102,11 @@ class FleiACFAdminColumns
     public function action_manage_posts_custom_column($column, $post_id)
     {
         if (array_key_exists($column, $this->admin_columns)) {
-            echo get_field($column, $post_id);
+            $field_value = get_field($column, $post_id);
+
+            $field_value = apply_filters('acf/admin_columns/column/' . $column, $field_value);
+
+            echo $field_value;
         }
     }
 
