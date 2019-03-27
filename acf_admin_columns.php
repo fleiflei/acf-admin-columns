@@ -12,6 +12,7 @@ class FleiACFAdminColumns
 {
 
     const ACF_SETTING_NAME = 'admin_column';
+    const COLUMN_NAME_PREFIX = 'acf_';
 
     private static $instance;
 
@@ -69,7 +70,7 @@ class FleiACFAdminColumns
                         continue;
                     }
 
-                    $this->admin_columns[$field['name']] = $field['label'];
+                    $this->admin_columns[$this->get_clean_column($field['name'])] = $field['label'];
                 }
 
             }
@@ -101,8 +102,8 @@ class FleiACFAdminColumns
                 // this makes sure we sort also when the custom field has never been set on some posts before
                 $meta_query = array(
                     'relation' => 'OR',
-                    array('key' => $orderby, 'compare' => 'NOT EXISTS'), // 'NOT EXISTS' needs to go first for proper sorting
-                    array('key' => $orderby, 'compare' => 'EXISTS'),
+                    array('key' => $this->get_clean_column($orderby), 'compare' => 'NOT EXISTS'), // 'NOT EXISTS' needs to go first for proper sorting
+                    array('key' => $this->get_clean_column($orderby), 'compare' => 'EXISTS'),
                 );
 
                 $query->set('meta_query', $meta_query);
@@ -138,7 +139,7 @@ class FleiACFAdminColumns
     {
 
         foreach ($this->admin_columns as $idx => $acol) {
-            $columns[($idx)] = $idx;
+            $columns[$idx] = $idx;
         }
 
         $columns = apply_filters('acf/admin_columns/sortable_columns', $columns);
@@ -154,11 +155,16 @@ class FleiACFAdminColumns
      */
     public function action_manage_posts_custom_column($column, $post_id)
     {
-        if (array_key_exists($column, $this->admin_columns)) {
-//            $field_value = $this->render_column_field($column, $post_id);
 
-            $field_value = acf_format_value(get_field($column), $post_id, true);
-            $field_value = apply_filters('acf/admin_columns/column/' . $column, $field_value);
+        if (array_key_exists($column, $this->admin_columns)) {
+
+            $clean_column = $this->get_clean_column($column);
+            $field_value = get_field($clean_column, $post_id);
+
+            $field_value = $this->render_column_field($column, $post_id);
+
+//            $field_value = acf_format_value($field_value, $post_id, true);
+            $field_value = apply_filters('acf/admin_columns/column/' . $clean_column, $field_value);
 
             echo $field_value;
         }
@@ -167,11 +173,13 @@ class FleiACFAdminColumns
     public function render_column_field($column, $post_id)
     {
 
-        $field_value = get_field($column, $post_id);
+        $clean_column = $this->get_clean_column($column);
+        $field_value = get_field($clean_column, $post_id);
+
         if ($field_value) {
             $render_output = '';
 
-            $field_properties = acf_get_field($column, $post_id);
+            $field_properties = acf_get_field($clean_column, $post_id);
             $field_images = $field_value;
             $items_more = 0;
 
@@ -318,6 +326,16 @@ class FleiACFAdminColumns
     private function is_acf_active()
     {
         return (function_exists('acf_get_field_groups') && function_exists('acf_get_fields'));
+    }
+
+    /**
+     * Return the "real" ACF field name, without the prefix
+     * @param $dirty_column
+     * @return mixed
+     */
+    private function get_clean_column($dirty_column) {
+        $clean_column = str_replace(self::COLUMN_NAME_PREFIX, '', $dirty_column);
+        return $clean_column;
     }
 
 }
