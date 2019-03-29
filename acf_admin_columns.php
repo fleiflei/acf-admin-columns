@@ -70,7 +70,7 @@ class FleiACFAdminColumns
                         continue;
                     }
 
-                    $this->admin_columns[$this->get_clean_column($field['name'])] = $field['label'];
+                    $this->admin_columns[self::COLUMN_NAME_PREFIX.$field['name']] = $field['label'];
                 }
 
             }
