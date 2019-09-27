@@ -29,6 +29,13 @@ class FleiACFAdminColumns
 
     private $admin_columns = array();
 
+    private function __construct()
+    {
+        add_action('acf/init', array($this, 'add_acf_actions')); // add ACF fields
+        add_action('parse_request', array($this, 'prepare_columns'), 10);
+        add_action('pre_get_posts', array($this, 'action_prepare_query_sort'));
+    }
+
     public static function get_instance()
     {
         if (null === self::$instance) {
@@ -38,11 +45,33 @@ class FleiACFAdminColumns
         return self::$instance;
     }
 
-    private function __construct()
+    /**
+     * Add ACF hooks and handle versions
+     */
+    public function add_acf_actions()
     {
-        add_action('acf/init', array($this, 'add_acf_actions')); // add ACF fields
-        add_action('parse_request', array($this, 'prepare_columns'), 10);
-        add_action('pre_get_posts', array($this, 'action_prepare_query_sort'));
+        if (!$this->is_acf_active()) {
+            return;
+        }
+        $exclude = apply_filters('acf/admin_columns/exclude_field_types', $this->exclude_field_types);
+        $acf_version = acf_get_setting('version');
+        $sections = acf_get_field_types();
+        if ((version_compare($acf_version, '5.5.0', '<') || version_compare($acf_version, '5.6.0', '>=')) && version_compare($acf_version, '5.7.0', '<')) {
+            foreach ($sections as $section) {
+                foreach ($section as $type => $label) {
+                    if (!in_array($type, $exclude)) {
+                        add_action('acf/render_field_settings/type=' . $type, array($this, 'render_field_settings'), 1);
+                    }
+                }
+            }
+        } else {
+            // >= 5.5.0 || < 5.6.0
+            foreach ($sections as $type => $settings) {
+                if (!in_array($type, $exclude)) {
+                    add_action('acf/render_field_settings/type=' . $type, array($this, 'render_field_settings'), 1);
+                }
+            }
+        }
     }
 
     /**
@@ -148,8 +177,9 @@ class FleiACFAdminColumns
     }
 
     /**
-     * Displays the posts value inside of a columns cell
+     * WP Hook for displaying the posts value inside of a columns cell
      *
+     * @hook
      * @param $column
      * @param $post_id
      */
@@ -170,6 +200,13 @@ class FleiACFAdminColumns
         }
     }
 
+    /**
+     * Retrieves a field and returns the formatted value based on field type for displaying in "All posts" screen table columns
+     *
+     * @param $column
+     * @param $post_id
+     * @return mixed|string
+     */
     public function render_column_field($column, $post_id)
     {
 
@@ -185,9 +222,9 @@ class FleiACFAdminColumns
 
             switch ($field_properties['type']) {
                 case 'color_picker':
-                    $render_output .= '<div style="height:20px;width:100%;display:inline-block;background-color:' . $field_value . '">' . $field_value . '</div><br>';
+                    $render_output .= '<div style="display:inline-block;height:20px;width:100%;background-color:' . $field_value . '">' . $field_value . '</div><br>';
                     break;
-                case 'taxonomy': //@todo
+                case 'taxonomy':
                     $render_output = $field_value;
                     break;
                 case 'file':
@@ -283,34 +320,9 @@ class FleiACFAdminColumns
     }
 
     /**
-     * Add ACF hooks and handle versions
+     * Outputs the field within ACF's field setting UI
+     * @param $field
      */
-    public function add_acf_actions()
-    {
-        if (!$this->is_acf_active()) {
-            return;
-        }
-        $exclude = apply_filters('acf/admin_columns/exclude_field_types', $this->exclude_field_types);
-        $acf_version = acf_get_setting('version');
-        $sections = acf_get_field_types();
-        if ((version_compare($acf_version, '5.5.0', '<') || version_compare($acf_version, '5.6.0', '>=')) && version_compare($acf_version, '5.7.0', '<')) {
-            foreach ($sections as $section) {
-                foreach ($section as $type => $label) {
-                    if (!in_array($type, $exclude)) {
-                        add_action('acf/render_field_settings/type=' . $type, array($this, 'render_field_settings'), 1);
-                    }
-                }
-            }
-        } else {
-            // >= 5.5.0 || < 5.6.0
-            foreach ($sections as $type => $settings) {
-                if (!in_array($type, $exclude)) {
-                    add_action('acf/render_field_settings/type=' . $type, array($this, 'render_field_settings'), 1);
-                }
-            }
-        }
-    }
-
     public function render_field_settings($field)
     {
         $args = array(
@@ -318,11 +330,15 @@ class FleiACFAdminColumns
             'ui'           => 1,
             'label'        => 'Admin Column',
             'name'         => self::ACF_SETTING_NAME,
-            'instructions' => 'Show this field as a column in the admin post list.',
+            'instructions' => 'Show this field as a column in the "All posts" list.',
         );
         acf_render_field_setting($field, $args, false);
     }
 
+    /**
+     * checks whether ACF plugin is active
+     * @return bool
+     */
     private function is_acf_active()
     {
         return (function_exists('acf_get_field_groups') && function_exists('acf_get_fields'));
