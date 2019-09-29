@@ -31,9 +31,14 @@ class FleiACFAdminColumns
 
     private function __construct()
     {
+        // ACF related
         add_action('acf/init', array($this, 'add_acf_actions')); // add ACF fields
+        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
+
+        // WP admin post index tables ("All posts" screens)
         add_action('parse_request', array($this, 'prepare_columns'), 10);
         add_action('pre_get_posts', array($this, 'action_prepare_query_sort'));
+
     }
 
     public static function get_instance()
@@ -44,6 +49,16 @@ class FleiACFAdminColumns
 
         return self::$instance;
     }
+
+    public function enqueue_admin_scripts()
+    {
+        $screen = get_current_screen();
+
+        if ($screen && $screen->id == 'acf-field-group') { // only hook on ACF field editor page
+            wp_enqueue_script(self::ACF_SETTING_NAME, plugins_url('main.js', __FILE__), array('acf-field-group'), null, true);
+        }
+    }
+
 
     /**
      * Add ACF hooks and handle versions
@@ -95,11 +110,15 @@ class FleiACFAdminColumns
 
                 $fgroup_fields = acf_get_fields($fgroup);
                 foreach ($fgroup_fields as $field) {
-                    if (!isset($field[self::ACF_SETTING_NAME]) || $field[self::ACF_SETTING_NAME] == false) {
+                    if (!isset($field[self::ACF_SETTING_NAME . '_enabled']) || $field[self::ACF_SETTING_NAME . '_enabled'] == false) {
                         continue;
                     }
 
-                    $this->admin_columns[self::COLUMN_NAME_PREFIX.$field['name']] = $field['label'];
+                    if (!isset($field[self::ACF_SETTING_NAME . '_post_types']) || (is_array($field[self::ACF_SETTING_NAME . '_post_types']) && array_search($screen->post_type, $field[self::ACF_SETTING_NAME . '_post_types']) === false)) {
+                        continue;
+                    }
+
+                    $this->admin_columns[self::COLUMN_NAME_PREFIX . $field['name']] = $field['label'];
                 }
 
             }
@@ -325,14 +344,56 @@ class FleiACFAdminColumns
      */
     public function render_field_settings($field)
     {
-        $args = array(
-            'type'         => 'true_false',
-            'ui'           => 1,
-            'label'        => 'Admin Column',
-            'name'         => self::ACF_SETTING_NAME,
-            'instructions' => 'Show this field as a column in the "All posts" list.',
+
+
+        $setting_name_enabled = self::ACF_SETTING_NAME . '_enabled';
+        $setting_active = isset($field[$setting_name_enabled]) && $field[$setting_name_enabled] == true ? true : false;
+
+        /*
+         * General settings switch
+         */
+        $field_settings = array(
+            array(
+                'type'         => 'true_false',
+                'ui'           => 1,
+                'label'        => 'Admin Column',
+                'name'         => $setting_name_enabled,
+                'instructions' => 'Enable admin column for this field in post archive pages.',
+            ),
         );
-        acf_render_field_setting($field, $args, false);
+
+        /*
+         * Field for Post Types
+         */
+
+        $post_types = $this->get_supported_post_types();
+
+        if (isset($post_types['attachment'])) {
+            unset($post_types['attachment']);
+        }
+
+        $field_settings[] = array(
+            'type'          => 'checkbox',
+            'choices'       => $post_types,
+            'ui'            => 1,
+            'label'         => 'Admin Column Post Types',
+            'name'          => self::ACF_SETTING_NAME . '_post_types',
+            'instructions'  => 'Show admin column on archive pages of these post types.',
+            'allow_null'    => 0,
+            'default_value' => 1,
+        );
+
+        foreach ($field_settings as $settings_args) {
+            $settings_args['class'] = isset($settings_args['class']) ? $settings_args['class'] : '';
+            $settings_args['class'] .= 'aac-field-settings-' . $settings_args['name'];
+            acf_render_field_setting($field, $settings_args, false);
+        }
+
+    }
+
+    private function get_supported_post_types()
+    {
+        return $post_types = get_post_types(array('show_ui' => true, 'show_in_menu' => true));
     }
 
     /**
@@ -349,8 +410,10 @@ class FleiACFAdminColumns
      * @param $dirty_column
      * @return mixed
      */
-    private function get_clean_column($dirty_column) {
+    private function get_clean_column($dirty_column)
+    {
         $clean_column = str_replace(self::COLUMN_NAME_PREFIX, '', $dirty_column);
+
         return $clean_column;
     }
 
