@@ -29,14 +29,20 @@ class FleiACFAdminColumns
 
     private $admin_columns = array();
 
+    private $screen_is_post_type_index = false;
+    private $screen_is_taxonomy_index = false;
+
     private function __construct()
     {
-        // ACF related
-        add_action('acf/init', array($this, 'add_acf_actions')); // add ACF fields
-        add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
 
-        // WP admin post index tables ("All posts" screens)
-        add_action('parse_request', array($this, 'prepare_columns'), 10);
+        // ACF related
+        add_action('acf/init', array($this, 'action_add_acf_actions')); // add ACF fields
+        add_action('admin_enqueue_scripts', array($this, 'action_enqueue_admin_scripts'));
+
+        // WP admin post and taxonomy index tables ("All posts" screens)
+        add_action('parse_request', array($this, 'action_prepare_columns'), 10);
+        add_action('pre_get_terms', array($this, 'action_prepare_columns'), 10);
+
         add_action('pre_get_posts', array($this, 'action_prepare_query_sort'));
 
     }
@@ -50,8 +56,12 @@ class FleiACFAdminColumns
         return self::$instance;
     }
 
-    public function enqueue_admin_scripts()
+    public function action_enqueue_admin_scripts()
     {
+        if (!$this->is_acf_active()) {
+            return;
+        }
+
         $screen = get_current_screen();
 
         if ($screen && $screen->id == 'acf-field-group') { // only hook on ACF field editor page
@@ -59,15 +69,11 @@ class FleiACFAdminColumns
         }
     }
 
-
     /**
      * Add ACF hooks and handle versions
      */
-    public function add_acf_actions()
+    public function action_add_acf_actions()
     {
-        if (!$this->is_acf_active()) {
-            return;
-        }
         $exclude = apply_filters('acf/admin_columns/exclude_field_types', $this->exclude_field_types);
         $acf_version = acf_get_setting('version');
         $sections = acf_get_field_types();
@@ -92,43 +98,63 @@ class FleiACFAdminColumns
     /**
      * Checks which columns to show on the current screen and attaches to the respective WP hooks
      */
-    public function prepare_columns()
+    public function action_prepare_columns()
     {
-        if (!$this->is_acf_active()) {
+        $screen = $this->is_valid_admin_screen();
+        if (!$this->is_acf_active() || $this->admin_columns || !$screen) {
             return;
         }
 
-        $screen = get_current_screen();
+        $is_post_type_index = $screen->base == 'edit' && $screen->post_type;
+        $is_taxonomy_index = $screen->base == 'edit-tags' && $screen->taxonomy;
 
-        if ($screen && $screen->base == 'edit' && $ptype = $screen->post_type) {
+        $field_groups = false;
+        $field_groups_args = array();
 
-            // get all field groups for the current post type and check every containing field if it should become a
+        if ($this->screen_is_post_type_index) {
+            $field_groups_args['post_type'] = $screen->post_type;
+        } elseif ($this->screen_is_taxonomy_index) {
+            $field_groups_args['taxonomy'] = $screen->taxonomy;
+        }
 
-            $field_groups = acf_get_field_groups(array('post_type' => $ptype));
+        // get all field groups for the current post type and check every containing field if it should become a
+        $field_groups = acf_get_field_groups($field_groups_args);
 
-            foreach ($field_groups as $fgroup) {
+        foreach ($field_groups as $fgroup) {
 
-                $fgroup_fields = acf_get_fields($fgroup);
-                foreach ($fgroup_fields as $field) {
-                    if (!isset($field[self::ACF_SETTING_NAME . '_enabled']) || $field[self::ACF_SETTING_NAME . '_enabled'] == false) {
-                        continue;
-                    }
-
-                    if (!isset($field[self::ACF_SETTING_NAME . '_post_types']) || (is_array($field[self::ACF_SETTING_NAME . '_post_types']) && array_search($screen->post_type, $field[self::ACF_SETTING_NAME . '_post_types']) === false)) {
-                        continue;
-                    }
-
-                    $this->admin_columns[self::COLUMN_NAME_PREFIX . $field['name']] = $field['label'];
+            $fgroup_fields = acf_get_fields($fgroup);
+            foreach ($fgroup_fields as $field) {
+                if (!isset($field[self::ACF_SETTING_NAME . '_enabled']) || $field[self::ACF_SETTING_NAME . '_enabled'] == false) {
+                    continue;
                 }
 
+                if (isset($field[self::ACF_SETTING_NAME . '_taxonomies'])) {
+//                        var_dump($field['name'], !isset($field[self::ACF_SETTING_NAME . '_taxonomies']) || (is_array($field[self::ACF_SETTING_NAME . '_taxonomies']) && array_search($screen->taxonomy, $field[self::ACF_SETTING_NAME . '_taxonomies']) === false), !isset($field[self::ACF_SETTING_NAME . '_post_types']), (is_array($field[self::ACF_SETTING_NAME . '_post_types']) && array_search($screen->post_type, $field[self::ACF_SETTING_NAME . '_post_types']) === false));
+
+                }
+
+                if ($is_taxonomy_index && (!isset($field[self::ACF_SETTING_NAME . '_taxonomies']) || (is_array($field[self::ACF_SETTING_NAME . '_taxonomies']) && array_search($screen->taxonomy, $field[self::ACF_SETTING_NAME . '_taxonomies']) === false))) {
+                    continue;
+                }
+                if ($is_post_type_index && (!isset($field[self::ACF_SETTING_NAME . '_post_types']) || (is_array($field[self::ACF_SETTING_NAME . '_post_types']) && array_search($screen->post_type, $field[self::ACF_SETTING_NAME . '_post_types']) === false))) {
+                    continue;
+                }
+
+                $this->admin_columns[self::COLUMN_NAME_PREFIX . $field['name']] = $field['label'];
             }
 
-            $this->admin_columns = apply_filters('acf/admin_columns/admin_columns', $this->admin_columns);
+        }
 
-            if (!empty($this->admin_columns)) {
-                add_filter('manage_' . $ptype . '_posts_columns', array($this, 'filter_manage_posts_columns')); // creates the columns
+        $this->admin_columns = apply_filters('acf/admin_columns/admin_columns', $this->admin_columns);
+
+        if (!empty($this->admin_columns)) {
+            if ($is_post_type_index) {
+                add_filter('manage_' . $screen->post_type . '_posts_columns', array($this, 'filter_manage_posts_columns')); // creates the columns
                 add_filter('manage_' . $screen->id . '_sortable_columns', array($this, 'filter_manage_sortable_columns')); // make columns sortable
-                add_action('manage_' . $ptype . '_posts_custom_column', array($this, 'action_manage_posts_custom_column'), 10, 2); // outputs the columns values for each post
+                add_action('manage_' . $screen->post_type . '_posts_custom_column', array($this, 'action_manage_posts_custom_column'), 10, 2); // outputs the columns values for each post
+            } elseif ($is_taxonomy_index) {
+                add_filter('manage_edit-' . $screen->taxonomy . '_columns', array($this, 'filter_manage_posts_columns')); // creates the columns
+                add_filter('manage_' . $screen->taxonomy . '_custom_column', array($this, 'filter_manage_taxonomy_custom_column'), 10, 3); // outputs the columns values for each post
             }
         }
     }
@@ -142,7 +168,7 @@ class FleiACFAdminColumns
     public function action_prepare_query_sort($query)
     {
 
-        if ($query->query_vars && isset($query->query_vars['orderby'])) {
+        if ($this->is_acf_active() && $this->is_valid_admin_screen() && $query->query_vars && isset($query->query_vars['orderby'])) {
             $orderby = $query->query_vars['orderby'];
 
             if (array_key_exists($orderby, $this->admin_columns)) {
@@ -170,6 +196,7 @@ class FleiACFAdminColumns
      */
     public function filter_manage_posts_columns($columns)
     {
+
         if (!empty($this->admin_columns)) {
             $columns = array_merge($columns, $this->admin_columns);
         }
@@ -196,7 +223,7 @@ class FleiACFAdminColumns
     }
 
     /**
-     * WP Hook for displaying the posts value inside of a columns cell
+     * WP Hook for displaying the field value inside of a columns cell in posts index pages
      *
      * @hook
      * @param $column
@@ -208,15 +235,40 @@ class FleiACFAdminColumns
         if (array_key_exists($column, $this->admin_columns)) {
 
             $clean_column = $this->get_clean_column($column);
-            $field_value = get_field($clean_column, $post_id);
 
             $field_value = $this->render_column_field($column, $post_id);
 
-//            $field_value = acf_format_value($field_value, $post_id, true);
             $field_value = apply_filters('acf/admin_columns/column/' . $clean_column, $field_value);
 
             echo $field_value;
         }
+    }
+
+    /**
+     * WP Hook for displaying the field value inside of a columns cell taxonomy index pages
+     *
+     * @hook
+     * @param $column
+     * @param $post_id
+     */
+    public function filter_manage_taxonomy_custom_column($content, $column, $post_id)
+    {
+
+        if (array_key_exists($column, $this->admin_columns)) {
+
+            $clean_column = $this->get_clean_column($column);
+
+            $screen = get_current_screen();
+            $taxonomy = $screen->taxonomy;
+
+            $field_value = $this->render_column_field($column, $post_id, $taxonomy);
+
+            $field_value = apply_filters('acf/admin_columns/column/' . $clean_column, $field_value);
+
+            $content = $field_value;
+        }
+
+        return $content;
     }
 
     /**
@@ -226,10 +278,15 @@ class FleiACFAdminColumns
      * @param $post_id
      * @return mixed|string
      */
-    public function render_column_field($column, $post_id)
+    public function render_column_field($column, $post_id, $taxonomy = false)
     {
 
         $clean_column = $this->get_clean_column($column);
+
+        if ($taxonomy) {
+            $post_id = $taxonomy . '_' . $post_id;
+        }
+
         $field_value = get_field($clean_column, $post_id);
 
         if ($field_value) {
@@ -345,7 +402,6 @@ class FleiACFAdminColumns
     public function render_field_settings($field)
     {
 
-
         $setting_name_enabled = self::ACF_SETTING_NAME . '_enabled';
         $setting_active = isset($field[$setting_name_enabled]) && $field[$setting_name_enabled] == true ? true : false;
 
@@ -372,6 +428,7 @@ class FleiACFAdminColumns
             unset($post_types['attachment']);
         }
 
+        // post types option
         $field_settings[] = array(
             'type'          => 'checkbox',
             'choices'       => $post_types,
@@ -379,6 +436,20 @@ class FleiACFAdminColumns
             'label'         => 'Admin Column Post Types',
             'name'          => self::ACF_SETTING_NAME . '_post_types',
             'instructions'  => 'Show admin column on archive pages of these post types.',
+            'allow_null'    => 0,
+            'default_value' => 1,
+        );
+
+        $taxonomies = get_taxonomies(array('show_ui' => true));
+
+        // taxonomy option
+        $field_settings[] = array(
+            'type'          => 'checkbox',
+            'choices'       => $taxonomies,
+            'ui'            => 1,
+            'label'         => 'Admin Column Taxonomies',
+            'name'          => self::ACF_SETTING_NAME . '_taxonomies',
+            'instructions'  => 'Show admin column on archive pages of these taxonomies.',
             'allow_null'    => 0,
             'default_value' => 1,
         );
@@ -403,6 +474,22 @@ class FleiACFAdminColumns
     private function is_acf_active()
     {
         return (function_exists('acf_get_field_groups') && function_exists('acf_get_fields'));
+    }
+
+    private function is_valid_admin_screen()
+    {
+
+        $screen = get_current_screen();
+
+        if ($screen) {
+            $this->screen_is_post_type_index = $screen->base == 'edit' && $screen->post_type;
+            $this->screen_is_taxonomy_index = $screen->base == 'edit-tags' && $screen->taxonomy;
+            if ($this->screen_is_post_type_index || $this->screen_is_taxonomy_index) {
+                return $screen;
+            }
+        }
+
+        return false;
     }
 
     /**
