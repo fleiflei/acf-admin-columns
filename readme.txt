@@ -8,7 +8,9 @@ Stable tag: 4.3
 Requires PHP: 5.2.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Date of document: 01.10.2019
+Date: 01.10.2019
+Version: 0.1
+
 
 Allows you to enable columns for your ACF fields in post and taxonomy overviews (e.g. "All Posts"). This plugin requires a recent version of plugin "Advanced Custom Fields" (ACF).
 

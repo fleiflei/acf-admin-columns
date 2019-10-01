@@ -1,10 +1,11 @@
 <?php
 /**
  * Plugin Name: Admin Columns for ACF Fields
- * Plugin URI: https://wordpress.org/plugins/user-role-field-setting-for-acf/
- * Description: Add columns to the admin area of
+ * Plugin URI: https://wordpress.org/plugins/acf-admin-columns/
+ * Description: Add columns for your ACF fields to post and taxonomy index pages in the WP backend.
  * Version: 0.1
  * Author: Florian Eickhorst
+ * Author URI: http://www.fleimedia.com/
  * License: GPL
  */
 
