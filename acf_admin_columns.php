@@ -128,11 +128,6 @@ class FleiACFAdminColumns
                     continue;
                 }
 
-                if (isset($field[self::ACF_SETTING_NAME . '_taxonomies'])) {
-//                        var_dump($field['name'], !isset($field[self::ACF_SETTING_NAME . '_taxonomies']) || (is_array($field[self::ACF_SETTING_NAME . '_taxonomies']) && array_search($screen->taxonomy, $field[self::ACF_SETTING_NAME . '_taxonomies']) === false), !isset($field[self::ACF_SETTING_NAME . '_post_types']), (is_array($field[self::ACF_SETTING_NAME . '_post_types']) && array_search($screen->post_type, $field[self::ACF_SETTING_NAME . '_post_types']) === false));
-
-                }
-
                 if ($is_taxonomy_index && (!isset($field[self::ACF_SETTING_NAME . '_taxonomies']) || (is_array($field[self::ACF_SETTING_NAME . '_taxonomies']) && array_search($screen->taxonomy, $field[self::ACF_SETTING_NAME . '_taxonomies']) === false))) {
                     continue;
                 }
@@ -298,7 +293,7 @@ class FleiACFAdminColumns
 
             switch ($field_properties['type']) {
                 case 'color_picker':
-                    $render_output .= '<div style="display:inline-block;height:20px;width:100%;background-color:' . $field_value . '">' . $field_value . '</div><br>';
+                    $render_output .= '<div style="display:inline-block;height:20px;width:100%;background-color:' . $field_value . ';white-space:nowrap;">' . $field_value . '</div><br>';
                     break;
                 case 'taxonomy':
                     $render_output = $field_value;
