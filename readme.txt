@@ -12,7 +12,7 @@ Date: 01.10.2019
 Version: 0.1
 
 
-Allows you to enable columns for your ACF fields in post and taxonomy overviews (e.g. "All Posts"). This plugin requires a recent version of plugin "Advanced Custom Fields" (ACF).
+Allows you to enable columns for your ACF fields in post and taxonomy overviews (e.g. "All Posts") in the Wordpress admin backend. This plugin requires a recent version of plugin "Advanced Custom Fields" (ACF).
 
 ## Description ##
 
@@ -22,9 +22,7 @@ Simply enable the new option "Admin Column" in your ACF field settings for any r
 
 You can use filters (see below) to control the plugins behaviour even more precisely.
 
-Once installed the plugin will add another option "Admin Columns" to the Field Settings in the ACF Field Group user interface.
-
-Works on any ACF field, except "Clone", "Repeater", and "Tab".
+Works on any regular ACF field (see exceptions below).
  
 Compatible with Advanced Custom Fields 5.x 
 
@@ -34,7 +32,7 @@ Github: https://www.github.com/fleiflei/
 
 1. Install ACF and this plugin (see below)
 2. In ACF open/create your "field group" within ACF and note the post type that this field group applies to (at the bottom). 
-3. Open any field for editing (except "Clone", "Repeater", or "Tab").
+3. Open any field for editing (see exceptions below).
 4. Enable the "Admin Column" option in the field settings. 
 5. Enable post types and/or taxonomies for which the column should be shown.
 6. Save the field group and go to the overview page of the post type or taxonomy (e.g. "Posts > All Posts", or "Pages > All Pages") that you noted above and notice the newly added column for your field.
