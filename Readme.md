@@ -1,4 +1,12 @@
-# Admin Columns for ACF Fields #
+# Admin Columns for ACF Fields 
+![Admin Columns For ACF Fields](screenshot-1.png "ScreenShot")
+## Installation 
+Depends on Advance Custom Fields plugin.
+This section describes how to install the plugin and get it working.
+
+1. Upload the plugin files to the `/wp-content/plugins/plugin-name` directory, or install the plugin through the WordPress plugins screen directly.
+2. Activate the plugin through the 'Plugins' screen in WordPress
+3. Open ACF and enable "Admin Column" in any fields settings section.
 
 Contributors: flei
 Tags: advanced custom fields, acf, admin columns
@@ -11,10 +19,9 @@ License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Date: 01.10.2019
 Version: 0.1
 
-
 Allows you to enable columns for your ACF fields in post and taxonomy overviews (e.g. "All Posts") in the Wordpress admin backend. This plugin requires a recent version of plugin "Advanced Custom Fields" (ACF).
 
-## Description ##
+## Description 
 
 Use this plugin to show ACF fields in the "All Posts" table view in the Wordpress admin backend.
 
@@ -28,7 +35,7 @@ Compatible with Advanced Custom Fields 5.x
 
 Github: https://www.github.com/fleiflei/
 
-## Usage: ## 
+## Usage: 
 
 1. Install ACF and this plugin (see below)
 2. In ACF open/create your "field group" within ACF and note the post type that this field group applies to (at the bottom). 
@@ -75,13 +82,7 @@ Allows you to modify the output of a certain $field in every row of a posts tabl
 $field_value - The field value   
 
 
-## Installation ##
 
-This section describes how to install the plugin and get it working.
-
-1. Upload the plugin files to the `/wp-content/plugins/plugin-name` directory, or install the plugin through the WordPress plugins screen directly.
-2. Activate the plugin through the 'Plugins' screen in WordPress
-3. Open ACF and enable "Admin Column" in any fields settings section.
 
 == Frequently Asked Questions ==
 
