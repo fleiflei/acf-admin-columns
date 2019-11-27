@@ -1,20 +1,20 @@
-# Admin Columns for ACF Fields #
+=== Admin Columns for ACF Fields ===
 
 Contributors: flei
 Tags: advanced custom fields, acf, admin columns
 Requires at least: 4.6
-Tested up to: 5.1.1
+Tested up to: 5.3
 Stable tag: 4.3
 Requires PHP: 5.2.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Date: 01.10.2019
-Version: 0.1
+Date: 27.11.2019
+Version: 0.1.1
 
 
 Allows you to enable columns for your ACF fields in post and taxonomy overviews (e.g. "All Posts") in the Wordpress admin backend. This plugin requires a recent version of plugin "Advanced Custom Fields" (ACF).
 
-## Description ##
+== Description ==
 
 Use this plugin to show ACF fields in the "All Posts" table view in the Wordpress admin backend.
 
@@ -26,9 +26,15 @@ Works on any regular ACF field (see exceptions below).
  
 Compatible with Advanced Custom Fields 5.x 
 
-Github: https://www.github.com/fleiflei/
+Github: https://github.com/fleiflei/acf-admin-columns
 
-## Usage: ## 
+== Screenshots ==
+
+1. Example of various admin columns for Posts
+
+2. New settings within the ACF field settings UI
+
+== Usage: ==
 
 1. Install ACF and this plugin (see below)
 2. In ACF open/create your "field group" within ACF and note the post type that this field group applies to (at the bottom). 
@@ -37,9 +43,9 @@ Github: https://www.github.com/fleiflei/
 5. Enable post types and/or taxonomies for which the column should be shown.
 6. Save the field group and go to the overview page of the post type or taxonomy (e.g. "Posts > All Posts", or "Pages > All Pages") that you noted above and notice the newly added column for your field.
 
-## Advanced Usage ##
+== Advanced Usage ==
 
-### Excluded ACF Fields ###
+= Excluded ACF Fields =
 
 Due to their nature the option "Admin Column" is not shown in ACF for these fields:
 
@@ -52,30 +58,34 @@ Due to their nature the option "Admin Column" is not shown in ACF for these fiel
  - Repeater
  - Tab
 
-### Change how the returned column value is displayed ###
-Use filter "acf/admin_columns/$field_name" to alter the value that is returned 
+== Filters ==
 
-## Filters ##
-### acf/admin_columns/admin_columns ###
+= "acf/admin_columns/admin_columns" =
 Allows you to change which columns are displayed on the current admin screen. 
 
-#### Parameters ####
-$fields - Array of all ACF fields to be shown in current screen.  
+** Parameters **
+    $fields - Array of all ACF fields to be shown in current screen.
 
-### acf/admin_columns/sortable_columns ###
+** Example: **
+
+    function my_admin_columns($fields) {
+      $fields['my_field'] = 'my_field';
+    }
+    add_filter('acf/admin_columns/admin_columns','my_admin_columns');
+
+= "acf/admin_columns/sortable_columns" =
 Change which columns should be sortable. By default every column is sortable. 
 
-#### Parameters ####
+** Parameters **
 $columns - Array of all ACF fields to be shown in current screen.  
 
-### acf/admin_columns/column/$field ###
+= "acf/admin_columns/column/$field" =
 Allows you to modify the output of a certain $field in every row of a posts table.
 
-#### Parameters ####
+** Parameters **
 $field_value - The field value   
 
-
-## Installation ##
+== Installation ==
 
 This section describes how to install the plugin and get it working.
 
@@ -86,3 +96,11 @@ This section describes how to install the plugin and get it working.
 == Frequently Asked Questions ==
 
 None yet, feel free to ask.
+
+== Changelog ==
+
+= 0.1.1 =
+* Release date: 27.11.2019 *
+
+* Fix: disable plugin for AJAX requests (see https://github.com/fleiflei/acf-admin-columns/issues/2)
+* Documentation: screenshot added, formatting and content updates
