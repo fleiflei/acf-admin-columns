@@ -3,7 +3,7 @@
  * Plugin Name: Admin Columns for ACF Fields
  * Plugin URI: https://wordpress.org/plugins/acf-admin-columns/
  * Description: Add columns for your ACF fields to post and taxonomy index pages in the WP backend.
- * Version: 0.1.1
+ * Version: 0.1.2
  * Author: Florian Eickhorst
  * Author URI: http://www.fleimedia.com/
  * License: GPL
@@ -59,7 +59,7 @@ class FleiACFAdminColumns
 
     public function action_enqueue_admin_scripts()
     {
-        if (!$this->is_acf_active()) {
+        if (!$this->is_acf_active() || !function_exists('get_current_screen')) {
             return;
         }
 
@@ -285,7 +285,7 @@ class FleiACFAdminColumns
 
         $field_value = get_field($clean_column, $post_id);
 
-        if ($field_value) {
+        if ($field_value !== '') {
             $render_output = '';
 
             $field_properties = acf_get_field($clean_column, $post_id);
@@ -475,9 +475,7 @@ class FleiACFAdminColumns
     private function is_valid_admin_screen()
     {
 
-        $screen = get_current_screen();
-
-        if ($screen) {
+        if (function_exists('get_current_screen') && $screen = get_current_screen()) {
             $this->screen_is_post_type_index = $screen->base == 'edit' && $screen->post_type;
             $this->screen_is_taxonomy_index = $screen->base == 'edit-tags' && $screen->taxonomy;
             if ($this->screen_is_post_type_index || $this->screen_is_taxonomy_index) {
@@ -502,6 +500,6 @@ class FleiACFAdminColumns
 
 }
 
-if (is_admin() && !wp_doing_ajax()) {
+if (is_admin()) {
     $flei_acf_admin_columns = FleiACFAdminColumns::get_instance();
 }
