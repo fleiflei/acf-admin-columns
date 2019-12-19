@@ -3,7 +3,7 @@
  * Plugin Name: Admin Columns for ACF Fields
  * Plugin URI: https://wordpress.org/plugins/acf-admin-columns/
  * Description: Add columns for your ACF fields to post and taxonomy index pages in the WP backend.
- * Version: 0.1.3
+ * Version: 0.2.0
  * Author: Florian Eickhorst
  * Author URI: http://www.fleimedia.com/
  * License: GPL
@@ -106,10 +106,6 @@ class FleiACFAdminColumns
             return;
         }
 
-        $is_post_type_index = $screen->base == 'edit' && $screen->post_type;
-        $is_taxonomy_index = $screen->base == 'edit-tags' && $screen->taxonomy;
-
-        $field_groups = false;
         $field_groups_args = array();
 
         if ($this->screen_is_post_type_index) {
@@ -129,10 +125,10 @@ class FleiACFAdminColumns
                     continue;
                 }
 
-                if ($is_taxonomy_index && (!isset($field[self::ACF_SETTING_NAME . '_taxonomies']) || (is_array($field[self::ACF_SETTING_NAME . '_taxonomies']) && array_search($screen->taxonomy, $field[self::ACF_SETTING_NAME . '_taxonomies']) === false))) {
+                if ($this->screen_is_taxonomy_index && (!isset($field[self::ACF_SETTING_NAME . '_taxonomies']) || (is_array($field[self::ACF_SETTING_NAME . '_taxonomies']) && array_search($screen->taxonomy, $field[self::ACF_SETTING_NAME . '_taxonomies']) === false))) {
                     continue;
                 }
-                if ($is_post_type_index && (!isset($field[self::ACF_SETTING_NAME . '_post_types']) || (is_array($field[self::ACF_SETTING_NAME . '_post_types']) && array_search($screen->post_type, $field[self::ACF_SETTING_NAME . '_post_types']) === false))) {
+                if ($this->screen_is_post_type_index && (!isset($field[self::ACF_SETTING_NAME . '_post_types']) || (is_array($field[self::ACF_SETTING_NAME . '_post_types']) && array_search($screen->post_type, $field[self::ACF_SETTING_NAME . '_post_types']) === false))) {
                     continue;
                 }
 
@@ -144,11 +140,16 @@ class FleiACFAdminColumns
         $this->admin_columns = apply_filters('acf/admin_columns/admin_columns', $this->admin_columns);
 
         if (!empty($this->admin_columns)) {
-            if ($is_post_type_index) {
+            if ($this->screen_is_post_type_index) {
                 add_filter('manage_' . $screen->post_type . '_posts_columns', array($this, 'filter_manage_posts_columns')); // creates the columns
                 add_filter('manage_' . $screen->id . '_sortable_columns', array($this, 'filter_manage_sortable_columns')); // make columns sortable
                 add_action('manage_' . $screen->post_type . '_posts_custom_column', array($this, 'action_manage_posts_custom_column'), 10, 2); // outputs the columns values for each post
-            } elseif ($is_taxonomy_index) {
+
+                add_filter('posts_join', array($this, 'filter_search_join'));
+                add_filter('posts_where', array($this, 'filter_search_where'));
+                add_filter('posts_distinct', array($this, 'filter_search_distinct'));
+
+            } elseif ($this->screen_is_taxonomy_index) {
                 add_filter('manage_edit-' . $screen->taxonomy . '_columns', array($this, 'filter_manage_posts_columns')); // creates the columns
                 add_filter('manage_' . $screen->taxonomy . '_custom_column', array($this, 'filter_manage_taxonomy_custom_column'), 10, 3); // outputs the columns values for each post
             }
@@ -265,6 +266,49 @@ class FleiACFAdminColumns
         }
 
         return $content;
+    }
+
+    public function filter_search_join($join)
+    {
+
+        if ($this->is_search()) {
+            global $wpdb;
+            $join .= 'LEFT JOIN ' . $wpdb->postmeta . ' ON ' . $wpdb->posts . '.ID = ' . $wpdb->postmeta . '.post_id ';
+        }
+
+        return $join;
+    }
+
+    public function filter_search_where($where)
+    {
+        if ($this->is_search()) {
+
+            global $wpdb;
+
+            $where_column_sql = '';
+            foreach ($this->admin_columns as $admin_column => $description) {
+                $admin_column = $this->get_clean_column($admin_column);
+                $where_column_sql .= " OR (" . $wpdb->postmeta . ".meta_key ='$admin_column' AND {$wpdb->postmeta}.meta_value LIKE $1)";
+            }
+
+            $where = preg_replace(
+                "/\(\s*" . $wpdb->posts . ".post_title\s+LIKE\s*(\'[^\']+\')\s*\)/",
+                "(" . $wpdb->posts . ".post_title LIKE $1)" . $where_column_sql,
+                $where);
+        }
+
+        return $where;
+
+    }
+
+    public function filter_search_distinct($where)
+    {
+
+        if ($this->is_search()) {
+            return "DISTINCT";
+        }
+
+        return $where;
     }
 
     /**
@@ -395,6 +439,10 @@ class FleiACFAdminColumns
                 $render_output = implode(', ', $render_output);
             }
 
+            if ($search_term = $this->is_search()) {
+                $render_output = preg_replace('#'. preg_quote($search_term) .'#i', '<span style="background-color:#FFFF66; color:#000000;">\\0</span>', $render_output);
+            }
+
             if ($items_more) {
                 $render_output .= "<br>and $items_more more";
             }
@@ -496,6 +544,17 @@ class FleiACFAdminColumns
         }
 
         return false;
+    }
+
+    private function is_search()
+    {
+
+        $search_term = false;
+        if (isset($_GET['s']) && !empty($_GET['s'])) {
+            $search_term = $_GET['s'];
+        }
+
+        return $search_term;
     }
 
     /**
