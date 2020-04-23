@@ -317,7 +317,8 @@ class FleiACFAdminColumns
                         $p = $field_value[0];
                         $items_more = count($field_value) - 1;
                     }
-                    $render_output = '<a href="' . get_edit_post_link($p, false) . '">' . $p->post_title . '</a>';
+                    if($p)
+                        $render_output = '<a href="' . get_edit_post_link($p, false) . '">' . $p->post_title . '</a>';
 
                     break;
                 case 'user':
