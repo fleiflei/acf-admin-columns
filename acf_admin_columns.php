@@ -3,7 +3,7 @@
  * Plugin Name: Admin Columns for ACF Fields
  * Plugin URI: https://wordpress.org/plugins/acf-admin-columns/
  * Description: Add columns for your ACF fields to post and taxonomy index pages in the WP backend.
- * Version: 0.1.2
+ * Version: 0.1.3
  * Author: Florian Eickhorst
  * Author URI: http://www.fleimedia.com/
  * License: GPL
@@ -359,7 +359,18 @@ class FleiACFAdminColumns
                         $items_more = count($field_images) - 1;
                     }
                     break;
-
+                case 'select':
+                    if (is_array($field_value) && !empty($field_value) && is_array($field_value[0])) { // returning key and description (ACF option "return both")
+                        foreach ($field_value as $f_value) {
+                            $render_output .= implode(' : ', $f_value);
+                            if (count($field_value) > 1) {
+                                $render_output .= '<br>';
+                            }
+                        }
+                    } else {
+                        $render_output = $field_value;
+                    }
+                    break;
                 case 'text':
                 case 'textarea':
                 case 'number':
@@ -367,7 +378,6 @@ class FleiACFAdminColumns
                 case 'email':
                 case 'url':
                 case 'password':
-                case 'select':
                 case 'checkbox':
                 case 'radio':
                 case 'button_group':
