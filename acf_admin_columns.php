@@ -356,7 +356,7 @@ class FleiACFAdminColumns
                             $render_output = "<img style='width:100%;height:auto;' src='$preview_image_url'>";
                         }
 
-                        $items_more = count($field_value) - 1;
+                        $items_more = count($field_images) - 1;
                     }
                     break;
 
