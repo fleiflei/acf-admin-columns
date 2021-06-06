@@ -317,9 +317,12 @@ class FleiACFAdminColumns
                         $p = $field_value[0];
                         $items_more = count($field_value) - 1;
                     }
-                    if (is_object($p)) {
-                        $render_output = '<a href="' . get_edit_post_link($p, false) . '">' . $p->post_title . '</a>';
+                    
+                    if (!empty($p)) {
+                        $render_output = '<a href="' . get_edit_post_link($p, false) . '">' . get_the_title($p) . '</a>';
                     }
+                    
+                    
 
                     break;
                 case 'user':
