@@ -178,7 +178,18 @@ class FleiACFAdminColumns
                 );
 
                 $query->set('meta_query', $meta_query);
-                $query->set('orderby', 'meta_value');
+
+                $order_type = 'meta_value';
+
+                // make numerical field ordering useful:
+                $field_properties = acf_get_field($this->get_clean_column($orderby));
+                if (isset($field_properties['type']) && $field_properties['type'] == 'number') {
+                    $order_type = 'meta_value_num';
+                }
+
+                $order_type = apply_filters('acf/admin_columns/sort_order_type', $order_type, $orderby);
+
+                $query->set('orderby', $order_type);
             }
         }
 
