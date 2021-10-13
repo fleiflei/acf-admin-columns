@@ -284,7 +284,7 @@ class FleiACFAdminColumns
 
         if ($this->is_search()) {
             global $wpdb;
-            $join .= 'LEFT JOIN ' . $wpdb->postmeta . ' ON ' . $wpdb->posts . '.ID = ' . $wpdb->postmeta . '.post_id ';
+            $join .= ' LEFT JOIN ' . $wpdb->postmeta . ' AS ' . self::COLUMN_NAME_PREFIX . $wpdb->postmeta . ' ON ' . $wpdb->posts . '.ID = ' . self::COLUMN_NAME_PREFIX . $wpdb->postmeta . '.post_id ';
         }
 
         return $join;
@@ -299,7 +299,7 @@ class FleiACFAdminColumns
             $where_column_sql = '';
             foreach ($this->admin_columns as $admin_column => $description) {
                 $admin_column = $this->get_clean_column($admin_column);
-                $where_column_sql .= " OR (" . $wpdb->postmeta . ".meta_key ='$admin_column' AND {$wpdb->postmeta}.meta_value LIKE $1)";
+                $where_column_sql .= " OR (" . self::COLUMN_NAME_PREFIX . $wpdb->postmeta . ".meta_key ='$admin_column' AND " . self::COLUMN_NAME_PREFIX . $wpdb->postmeta . ".meta_value LIKE $1)";
             }
 
             $where = preg_replace(
@@ -340,126 +340,142 @@ class FleiACFAdminColumns
 
         $field_value = get_field($clean_column, $post_id);
 
-        if ($field_value !== '') {
-            $render_output = '';
+        $render_output = '';
 
-            $field_properties = acf_get_field($clean_column, $post_id);
-            $field_images = $field_value;
-            $items_more = 0;
+        $field_properties = acf_get_field($clean_column, $post_id);
+        $field_images = $field_value;
+        $preview_item_count = 1;
+        $remaining_items_count = 0;
+        $render_raw = false; // render untouched field value?
 
-            switch ($field_properties['type']) {
-                case 'color_picker':
+        switch ($field_properties['type']) {
+            case 'color_picker':
+                if ($field_value) {
                     $render_output .= '<div style="display:inline-block;height:20px;width:100%;background-color:' . $field_value . ';white-space:nowrap;">' . $field_value . '</div><br>';
-                    break;
-                case 'taxonomy':
-                    $render_output = $field_value;
-                    break;
-                case 'file':
-                    $render_output = $field_value['filename'] ?: ''; // @todo multiple values
-                    break;
-                case 'wysiwyg':
-                    $render_output = wp_trim_excerpt(strip_tags($field_value));
-                    break;
-                case 'link':
-                    if (is_array($field_value) && isset($field_value['url'])) {
-                        $render_output = $field_value['url'];
+                }
+                break;
+            case 'taxonomy':
+                if (is_array($field_value)) {
+                    foreach ($field_value as $field_taxonomy) {
+                        $render_output .= $field_taxonomy->name . ' (' . $field_taxonomy->term_id . ')';
                     }
-                    break;
-                case 'post_object':
-                case 'relationship':
-                    $p = $field_value;
-                    if (is_array($field_value) && !empty($field_value)) {
-                        $p = $field_value[0];
-                        $items_more = count($field_value) - 1;
-                    }
-                    if (is_object($p)) {
-                        $render_output = '<a href="' . get_edit_post_link($p, false) . '">' . $p->post_title . '</a>';
-                    }
-
-                    break;
-                case 'user':
-                    $u = $field_value;
-                    if (is_array($field_value) && !empty($field_value)) {
-                        $u = $field_value[0];
-                        $items_more = count($field_value) - 1;
-                    }
+                }
+                break;
+            case 'file':
+                $render_output = isset($field_value['filename']) ? $field_value['filename'] : ''; // @todo multiple values
+                break;
+            case 'wysiwyg':
+                $render_output = wp_trim_excerpt(strip_tags($field_value));
+                break;
+            case 'link':
+                if (is_array($field_value) && isset($field_value['url'])) {
+                    $render_output = $field_value['url'];
+                }
+                break;
+            case 'post_object':
+            case 'relationship':
+                $p = $field_value;
+                if (is_array($field_value) && !empty($field_value)) {
+                    $p = $field_value[0];
+                    $remaining_items_count = count($field_value) - 1;
+                }
+                if ($p) {
+                    $render_output = '<a href="' . get_edit_post_link($p, false) . '">' . get_the_title($p) . '</a>';
+                }
+                break;
+            case 'user':
+                $u = $field_value;
+                if (is_array($field_value) && !empty($field_value)) {
+                    $u = $field_value[0];
                     $render_output = '<a href="' . get_edit_user_link($u) . '">' . $u['display_name'] . '</a>';
-                    break;
-                case 'image':
-                    $field_images = array($field_value);
-                case 'gallery':
+                    $remaining_items_count = count($field_value) - 1;
+                }
+                break;
+            case 'image':
+                $field_images = array($field_value);
+            case 'gallery':
 
-                    if (!empty($field_images)) {
-                        $preview_image = $field_images[0]; // use first image as preview
-                        $preview_image_id = 0;
-                        $preview_image_url = '';
+                if (!empty($field_images)) {
+                    $preview_image = $field_images[0]; // use first image as preview
+                    $preview_image_id = 0;
+                    $preview_image_url = '';
 
-                        if (is_array($field_value) && isset($preview_image['ID'])) {
-                            $preview_image_id = $preview_image['ID'];
-                        } else if (intval($preview_image) > 0) {
-                            $preview_image_id = intval($preview_image);
-                        }
-
-                        if (filter_var($preview_image, FILTER_VALIDATE_URL)) {
-                            $preview_image_url = $preview_image;
-                        } else if ($preview_image_id > 0) {
-                            $img = wp_get_attachment_image_src($preview_image_id, 'thumbnail');
-                            if (is_array($img) && isset($img[0])) {
-                                $preview_image_url = $img[0];
-                            }
-                        }
-
-                        if ($preview_image_url) {
-                            $render_output = "<img style='width:100%;height:auto;' src='$preview_image_url'>";
-                        }
-
-                        $items_more = count($field_images) - 1;
+                    if (is_array($field_value) && isset($preview_image['ID'])) {
+                        $preview_image_id = $preview_image['ID'];
+                    } else if (intval($preview_image) > 0) {
+                        $preview_image_id = intval($preview_image);
                     }
-                    break;
-                case 'select':
-                    if (is_array($field_value) && !empty($field_value) && is_array($field_value[0])) { // returning key and description (ACF option "return both")
-                        foreach ($field_value as $f_value) {
-                            $render_output .= implode(' : ', $f_value);
-                            if (count($field_value) > 1) {
-                                $render_output .= '<br>';
-                            }
+
+                    if (filter_var($preview_image, FILTER_VALIDATE_URL)) {
+                        $preview_image_url = $preview_image;
+                    } else if ($preview_image_id > 0) {
+                        $preview_image_size = apply_filters('acf/admin_columns/preview_image_size', 'thumbnail', $field_properties, $field_value);
+                        $img = wp_get_attachment_image_src($preview_image_id, $preview_image_size);
+                        if (is_array($img) && isset($img[0])) {
+                            $preview_image_url = $img[0];
                         }
-                    } else {
-                        $render_output = $field_value;
                     }
-                    break;
-                case 'text':
-                case 'textarea':
-                case 'number':
-                case 'range':
-                case 'email':
-                case 'url':
-                case 'password':
-                case 'checkbox':
-                case 'radio':
-                case 'button_group':
-                case 'true_false':
-                case 'page_link':
-                case 'date_picker':
-                case 'time_picker':
-                default:
-                    $render_output = $field_value;
-            }
 
-            if (is_array($render_output)) {
-                $render_output = implode(', ', $render_output);
-            }
+                    $preview_image_url = apply_filters('acf/admin_columns/preview_image_url', $preview_image_url, $field_properties, $field_value);
 
-            if ($search_term = $this->is_search()) {
-                $render_output = preg_replace('#'. preg_quote($search_term) .'#i', '<span style="background-color:#FFFF66; color:#000000;">\\0</span>', $render_output);
-            }
+                    if ($preview_image_url) {
+                        $render_output = "<img style='width:100%;height:auto;' src='$preview_image_url'>";
 
-            if ($items_more) {
-                $render_output .= "<br>and $items_more more";
-            }
-
-            return $render_output;
+                        if ($field_images) {
+                            $remaining_items_count = count($field_images) - $preview_item_count;
+                        }
+                    }
+                }
+                break;
+            case 'number':
+            case 'true_false':
+            case 'text':
+            case 'textarea':
+                $render_raw = true;
+            case 'select':
+            case 'range':
+            case 'email':
+            case 'url':
+            case 'password':
+            case 'checkbox':
+            case 'radio':
+            case 'button_group':
+            case 'page_link':
+            case 'date_picker':
+            case 'time_picker':
+            default:
+                $render_output = $field_value;
         }
+
+        $link_wrap_url = apply_filters('acf/admin_columns/link_wrap_url', true, $field_properties, $field_value);
+
+        if (filter_var($render_output, FILTER_VALIDATE_URL) && $link_wrap_url) {
+            $render_output = '<a href="' . $render_output . '">' . $render_output . '</a>';
+        }
+
+        // list array entries
+        if (is_array($render_output)) {
+            $render_output = implode(', ', $render_output);
+        }
+
+        $render_raw = apply_filters('acf/admin_columns/render_raw', $render_raw, $field_properties, $field_value);
+
+        // default "no value" or "empty" output
+        if (!$render_output && !$render_raw) {
+            $render_output = apply_filters('acf/admin_columns/no_value_placeholder', '—', $field_properties, $field_value);
+        }
+
+        // search term highlighting
+        if ($search_term = $this->is_search()) {
+            $search_preg_replace_pattern = apply_filters('acf/admin_columns/search/highlight_preg_replace_pattern', '<span style="background-color:#FFFF66; color:#000000;">\\0</span>', $search_term, $field_properties, $field_value);
+            $render_output = preg_replace('#' . preg_quote($search_term) . '#i', $search_preg_replace_pattern, $render_output);
+        }
+
+        if ($remaining_items_count) {
+            $render_output .= "<br>and $remaining_items_count more";
+        }
+
+        return apply_filters('acf/admin_columns/render_output', $render_output, $field_properties, $field_value);
     }
 
     /**
