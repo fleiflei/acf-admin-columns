@@ -32,17 +32,17 @@ class FleiACFAdminColumns
 
     private $screen_is_post_type_index = false;
     private $screen_is_taxonomy_index = false;
+    private $screen_is_user_index = false;
 
     private function __construct()
     {
-
         // ACF related
         add_action('acf/init', array($this, 'action_add_acf_actions')); // add ACF fields
-        add_action('admin_enqueue_scripts', array($this, 'action_enqueue_admin_scripts'));
 
-        // WP admin post and taxonomy index tables ("All posts" screens)
+        // WP admin index tables (e.g. "All posts" screens)
         add_action('parse_request', array($this, 'action_prepare_columns'), 10);
         add_action('pre_get_terms', array($this, 'action_prepare_columns'), 10);
+        add_action('pre_get_users', array($this, 'action_prepare_columns'), 10);
 
         add_action('pre_get_posts', array($this, 'action_prepare_query_sort'));
 
@@ -55,19 +55,6 @@ class FleiACFAdminColumns
         }
 
         return self::$instance;
-    }
-
-    public function action_enqueue_admin_scripts()
-    {
-        if (!$this->is_acf_active() || !function_exists('get_current_screen')) {
-            return;
-        }
-
-        $screen = get_current_screen();
-
-        if ($screen && $screen->id == 'acf-field-group') { // only hook on ACF field editor page
-            wp_enqueue_script(self::ACF_SETTING_NAME, plugins_url('main.js', __FILE__), array('acf-field-group'), null, true);
-        }
     }
 
     /**
@@ -112,6 +99,8 @@ class FleiACFAdminColumns
             $field_groups_args['post_type'] = $screen->post_type;
         } elseif ($this->screen_is_taxonomy_index) {
             $field_groups_args['taxonomy'] = $screen->taxonomy;
+        } elseif ($this->screen_is_user_index) {
+            $field_groups_args['user_form'] = 'all';
         }
 
         // get all field groups for the current post type and check every containing field if it should become a
@@ -128,9 +117,6 @@ class FleiACFAdminColumns
                 if ($this->screen_is_taxonomy_index && (!isset($field[self::ACF_SETTING_NAME . '_taxonomies']) || (is_array($field[self::ACF_SETTING_NAME . '_taxonomies']) && array_search($screen->taxonomy, $field[self::ACF_SETTING_NAME . '_taxonomies']) === false))) {
                     continue;
                 }
-                if ($this->screen_is_post_type_index && (!isset($field[self::ACF_SETTING_NAME . '_post_types']) || (is_array($field[self::ACF_SETTING_NAME . '_post_types']) && array_search($screen->post_type, $field[self::ACF_SETTING_NAME . '_post_types']) === false))) {
-                    continue;
-                }
 
                 $this->admin_columns[self::COLUMN_NAME_PREFIX . $field['name']] = $field['label'];
             }
@@ -143,7 +129,8 @@ class FleiACFAdminColumns
             if ($this->screen_is_post_type_index) {
                 add_filter('manage_' . $screen->post_type . '_posts_columns', array($this, 'filter_manage_posts_columns')); // creates the columns
                 add_filter('manage_' . $screen->id . '_sortable_columns', array($this, 'filter_manage_sortable_columns')); // make columns sortable
-                add_action('manage_' . $screen->post_type . '_posts_custom_column', array($this, 'action_manage_posts_custom_column'), 10, 2); // outputs the columns values for each post
+//                add_action('manage_' . $screen->post_type . '_posts_custom_column', array($this, 'action_manage_posts_custom_column'), 10, 2); // outputs the columns values for each post
+                add_action('manage_' . $screen->post_type . '_posts_custom_column', array($this, 'filter_manage_custom_column'), 10, 2); // outputs the columns values for each post
 
                 add_filter('posts_join', array($this, 'filter_search_join'));
                 add_filter('posts_where', array($this, 'filter_search_where'));
@@ -152,6 +139,10 @@ class FleiACFAdminColumns
             } elseif ($this->screen_is_taxonomy_index) {
                 add_filter('manage_edit-' . $screen->taxonomy . '_columns', array($this, 'filter_manage_posts_columns')); // creates the columns
                 add_filter('manage_' . $screen->taxonomy . '_custom_column', array($this, 'filter_manage_taxonomy_custom_column'), 10, 3); // outputs the columns values for each post
+                add_filter('manage_' . $screen->taxonomy . '_custom_column', array($this, 'filter_manage_custom_column'), 10, 3); // outputs the columns values for each post
+            } elseif ($this->screen_is_user_index) {
+                add_filter('manage_users_columns', array($this, 'filter_manage_posts_columns')); // creates the columns
+                add_filter('manage_users_custom_column', array($this, 'filter_manage_custom_column'), 10, 3); // outputs the columns values for each post
             }
         }
     }
@@ -168,7 +159,7 @@ class FleiACFAdminColumns
         if ($this->is_acf_active() && $this->is_valid_admin_screen() && $query->query_vars && isset($query->query_vars['orderby'])) {
             $orderby = $query->query_vars['orderby'];
 
-            if (array_key_exists($orderby, $this->admin_columns)) {
+            if (is_string($orderby) && array_key_exists($orderby, $this->admin_columns)) {
 
                 // this makes sure we sort also when the custom field has never been set on some posts before
                 $meta_query = array(
@@ -244,12 +235,53 @@ class FleiACFAdminColumns
 
             $clean_column = $this->get_clean_column($column);
 
-            $field_value = $this->render_column_field($column, $post_id);
+            $field_value = $this->render_column_field(array('column' => $column, 'post_id' => $post_id));
 
-            $field_value = apply_filters('acf/admin_columns/column/' . $clean_column, $field_value);
+            $field_value = apply_filters_deprecated('acf/admin_columns/column/' . $clean_column, $field_value, '0.2.0', 'acf/admin_columns/column/' . $clean_column . '/value');
+            $field_value = apply_filters('acf/admin_columns/column/' . $clean_column . '/value', $field_value);
 
             echo $field_value;
         }
+    }
+
+    public function filter_manage_custom_column($arg1, $arg2 = null, $arg3 = null)
+    {
+
+        $current_filter = current_filter();
+        if ($current_filter) {
+            $render_args = array();
+            $is_action = true;
+
+            if (strpos($current_filter, '_posts_custom_column')) {
+                $render_args['column'] = $arg1;
+                $render_args['post_id'] = $arg2;
+            } elseif (strpos($current_filter, '_custom_column')) {
+                $render_args['column'] = $arg2;
+                $render_args['post_id'] = $arg3;
+                $is_action = false;
+
+                $screen = $this->is_valid_admin_screen();
+
+                if ($this->screen_is_taxonomy_index) {
+                    $render_args['post_id'] = $screen->taxonomy . '_' . $render_args['post_id'];
+                } elseif ($this->screen_is_user_index) {
+                    $render_args['post_id'] = 'user_' . $render_args['post_id'];
+                }
+
+            }
+            if (array_key_exists($render_args['column'], $this->admin_columns)) {
+                $clean_column = $this->get_clean_column($render_args['column']);
+                $field_value = $this->render_column_field($render_args);
+                $field_value = apply_filters_deprecated('acf/admin_columns/column/' . $clean_column, array($field_value), '0.2.0', 'acf/admin_columns/column/' . $clean_column . '/value');
+                $field_value = apply_filters('acf/admin_columns/column/' . $clean_column . '/value', $field_value);
+                if ($is_action) {
+                    echo $field_value;
+                } else {
+                    return $field_value;
+                }
+            }
+        }
+
     }
 
     /**
@@ -269,7 +301,7 @@ class FleiACFAdminColumns
             $screen = get_current_screen();
             $taxonomy = $screen->taxonomy;
 
-            $field_value = $this->render_column_field($column, $post_id, $taxonomy);
+            $field_value = $this->render_column_field(array('column' => $column, 'post_id' => $post_id, 'taxonomy' => $taxonomy));
 
             $field_value = apply_filters('acf/admin_columns/column/' . $clean_column, $field_value);
 
@@ -329,14 +361,13 @@ class FleiACFAdminColumns
      * @param $post_id
      * @return mixed|string
      */
-    public function render_column_field($column, $post_id, $taxonomy = false)
+    public function render_column_field($args = array())
     {
 
-        $clean_column = $this->get_clean_column($column);
+        $column = $args['column'];
+        $post_id = isset($args['post_id']) ? $args['post_id'] : false;
 
-        if ($taxonomy) {
-            $post_id = $taxonomy . '_' . $post_id;
-        }
+        $clean_column = $this->get_clean_column($column);
 
         $field_value = get_field($clean_column, $post_id);
 
@@ -346,7 +377,15 @@ class FleiACFAdminColumns
         $field_images = $field_value;
         $preview_item_count = 1;
         $remaining_items_count = 0;
-        $render_raw = false; // render untouched field value?
+        $render_raw            = apply_filters('acf/admin_columns/column/' . $clean_column . '/render_raw', false, $field_properties, $field_value, $post_id);
+
+        if (empty($field_value) && !empty($field_properties['default_value'])) {
+            $field_value = apply_filters('acf/admin_columns/default_value', $field_properties['default_value'], $field_properties, $field_value, $post_id);
+        }
+
+        $field_value = apply_filters('acf/admin_columns/column/' . $clean_column . '/before_render_value', $field_value, $field_properties, $post_id);
+
+        if (!$render_raw) {
 
         switch ($field_properties['type']) {
             case 'color_picker':
@@ -432,13 +471,17 @@ class FleiACFAdminColumns
             case 'text':
             case 'textarea':
                 $render_raw = true;
+                case 'checkbox':
+                case 'radio':
             case 'select':
+                    if (!empty($field_properties['choices'][$field_value])) {
+                        $render_output = $field_properties['choices'][$field_value] . ' (' . $field_value . ')';
+                        break;
+                    }
             case 'range':
             case 'email':
             case 'url':
             case 'password':
-            case 'checkbox':
-            case 'radio':
             case 'button_group':
             case 'page_link':
             case 'date_picker':
@@ -447,7 +490,7 @@ class FleiACFAdminColumns
                 $render_output = $field_value;
         }
 
-        $link_wrap_url = apply_filters('acf/admin_columns/link_wrap_url', true, $field_properties, $field_value);
+            $link_wrap_url = apply_filters('acf/admin_columns/link_wrap_url', true, $field_properties, $field_value, $post_id);
 
         if (filter_var($render_output, FILTER_VALIDATE_URL) && $link_wrap_url) {
             $render_output = '<a href="' . $render_output . '">' . $render_output . '</a>';
@@ -458,24 +501,25 @@ class FleiACFAdminColumns
             $render_output = implode(', ', $render_output);
         }
 
-        $render_raw = apply_filters('acf/admin_columns/render_raw', $render_raw, $field_properties, $field_value);
+        }
+
 
         // default "no value" or "empty" output
-        if (!$render_output && !$render_raw) {
-            $render_output = apply_filters('acf/admin_columns/no_value_placeholder', '—', $field_properties, $field_value);
+        if (empty($render_output) && !$render_raw && $field_properties['type'] !== 'true_false' ) {
+            $render_output = apply_filters('acf/admin_columns/no_value_placeholder', '—', $field_properties, $field_value, $post_id);
         }
 
         // search term highlighting
         if ($search_term = $this->is_search()) {
-            $search_preg_replace_pattern = apply_filters('acf/admin_columns/search/highlight_preg_replace_pattern', '<span style="background-color:#FFFF66; color:#000000;">\\0</span>', $search_term, $field_properties, $field_value);
+            $search_preg_replace_pattern = apply_filters('acf/admin_columns/search/highlight_preg_replace_pattern', '<span style="background-color:#FFFF66; color:#000000;">\\0</span>', $search_term, $field_properties, $field_value, $post_id);
             $render_output = preg_replace('#' . preg_quote($search_term) . '#i', $search_preg_replace_pattern, $render_output);
         }
 
-        if ($remaining_items_count) {
+        if (!empty($remaining_items_count)) {
             $render_output .= "<br>and $remaining_items_count more";
         }
 
-        return apply_filters('acf/admin_columns/render_output', $render_output, $field_properties, $field_value);
+        return apply_filters('acf/admin_columns/render_output', $render_output, $field_properties, $field_value, $post_id);
     }
 
     /**
@@ -486,60 +530,23 @@ class FleiACFAdminColumns
     {
 
         $setting_name_enabled = self::ACF_SETTING_NAME . '_enabled';
-        $setting_active = isset($field[$setting_name_enabled]) && $field[$setting_name_enabled] == true ? true : false;
+        $setting_active = isset($field[$setting_name_enabled]) && !!$field[$setting_name_enabled];
 
         /*
          * General settings switch
          */
         $field_settings = array(
             array(
-                'type'         => 'true_false',
-                'ui'           => 1,
-                'label'        => 'Admin Column',
-                'name'         => $setting_name_enabled,
+                'type' => 'true_false',
+                'ui' => 1,
+                'label' => 'Admin Column',
+                'name' => $setting_name_enabled,
                 'instructions' => 'Enable admin column for this field in post archive pages.',
             ),
         );
 
-        /*
-         * Field for Post Types
-         */
-
-        $post_types = $this->get_supported_post_types();
-
-        if (isset($post_types['attachment'])) {
-            unset($post_types['attachment']);
-        }
-
-        // post types option
-        $field_settings[] = array(
-            'type'          => 'checkbox',
-            'choices'       => $post_types,
-            'ui'            => 1,
-            'label'         => 'Admin Column Post Types',
-            'name'          => self::ACF_SETTING_NAME . '_post_types',
-            'instructions'  => 'Show admin column on archive pages of these post types.',
-            'allow_null'    => 0,
-            'default_value' => 1,
-        );
-
-        $taxonomies = get_taxonomies(array('show_ui' => true));
-
-        // taxonomy option
-        $field_settings[] = array(
-            'type'          => 'checkbox',
-            'choices'       => $taxonomies,
-            'ui'            => 1,
-            'label'         => 'Admin Column Taxonomies',
-            'name'          => self::ACF_SETTING_NAME . '_taxonomies',
-            'instructions'  => 'Show admin column on archive pages of these taxonomies.',
-            'allow_null'    => 0,
-            'default_value' => 1,
-        );
-
         foreach ($field_settings as $settings_args) {
-            $settings_args['class'] = isset($settings_args['class']) ? $settings_args['class'] : '';
-            $settings_args['class'] .= 'aac-field-settings-' . $settings_args['name'];
+            $settings_args['class'] = isset($settings_args['class']) ? $settings_args['class'].' aac-field-settings-' . $settings_args['name'] : '';
             acf_render_field_setting($field, $settings_args, false);
         }
 
@@ -565,7 +572,9 @@ class FleiACFAdminColumns
         if (function_exists('get_current_screen') && $screen = get_current_screen()) {
             $this->screen_is_post_type_index = $screen->base == 'edit' && $screen->post_type;
             $this->screen_is_taxonomy_index = $screen->base == 'edit-tags' && $screen->taxonomy;
-            if ($this->screen_is_post_type_index || $this->screen_is_taxonomy_index) {
+            $this->screen_is_user_index = $screen->base == 'users';
+
+            if ($this->screen_is_post_type_index || $this->screen_is_taxonomy_index || $this->screen_is_user_index) {
                 return $screen;
             }
         }
