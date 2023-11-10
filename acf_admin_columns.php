@@ -618,13 +618,27 @@ class FleiACFAdminColumns
             return $field_value;
         }
         $render_output = $field_value;
+        $value = '';
+        $label = '';
+
         if ($return_format === 'value' && !empty($choices[$field_value])) {
-            $render_output = $field_value . ' (' . $choices[$field_value] . ')';
+            $value = $field_value;
+            $label = $choices[$field_value];
         } else if ($return_format === 'label' && array_search($field_value, $choices)) {
-            $render_output = array_search($field_value, $choices) . ' (' . $field_value . ')';
-        } else if ($return_format === 'array' && array_key_exists('value', $field_value) && array_key_exists('label', $field_value)) {
-            $render_output = $field_value['value'] . ' (' . $field_value['label'] . ')';
+            $value = array_search($field_value, $choices);
+            $label = $field_value;
+        } else if ($return_format === 'array' && is_array($field_value) && array_key_exists('value', $field_value) && array_key_exists('label', $field_value)) {
+            $value = $field_value['value'];
+            $label = $field_value['label'];
         }
+
+        if (!empty($value) && !empty($label)) {
+            $render_output = $value;
+            if ($value !== $label) {
+                $render_output .= ' (' . $label . ')';
+            }
+        }
+
         return $render_output;
     }
 
