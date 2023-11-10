@@ -114,7 +114,7 @@ class FleiACFAdminColumns
                     continue;
                 }
 
-                if ($this->screen_is_taxonomy_index && (!isset($field[self::ACF_SETTING_NAME . '_taxonomies']) || (is_array($field[self::ACF_SETTING_NAME . '_taxonomies']) && array_search($screen->taxonomy, $field[self::ACF_SETTING_NAME . '_taxonomies']) === false))) {
+                if ($this->screen_is_taxonomy_index && (!isset($field[self::ACF_SETTING_NAME . '_taxonomies']) || (is_array($field[self::ACF_SETTING_NAME . '_taxonomies']) && !in_array($screen->taxonomy, $field[self::ACF_SETTING_NAME . '_taxonomies'])))) {
                     continue;
                 }
 
@@ -377,7 +377,7 @@ class FleiACFAdminColumns
         $field_images = $field_value;
         $preview_item_count = 1;
         $remaining_items_count = 0;
-        $render_raw            = apply_filters('acf/admin_columns/column/' . $clean_column . '/render_raw', false, $field_properties, $field_value, $post_id);
+        $render_raw = apply_filters('acf/admin_columns/column/' . $clean_column . '/render_raw', false, $field_properties, $field_value, $post_id);
 
         if (empty($field_value) && !empty($field_properties['default_value'])) {
             $field_value = apply_filters('acf/admin_columns/default_value', $field_properties['default_value'], $field_properties, $field_value, $post_id);
@@ -498,20 +498,20 @@ class FleiACFAdminColumns
 
             $link_wrap_url = apply_filters('acf/admin_columns/link_wrap_url', true, $field_properties, $field_value, $post_id);
 
-        if (filter_var($render_output, FILTER_VALIDATE_URL) && $link_wrap_url) {
-            $render_output = '<a href="' . $render_output . '">' . $render_output . '</a>';
-        }
+            if (filter_var($render_output, FILTER_VALIDATE_URL) && $link_wrap_url) {
+                $render_output = '<a href="' . $render_output . '">' . $render_output . '</a>';
+            }
 
-        // list array entries
-        if (is_array($render_output)) {
-            $render_output = implode(', ', $render_output);
-        }
+            // list array entries
+            if (is_array($render_output)) {
+                $render_output = implode(', ', $render_output);
+            }
 
         }
 
 
         // default "no value" or "empty" output
-        if (empty($render_output) && !$render_raw && $field_properties['type'] !== 'true_false' ) {
+        if (empty($render_output) && !$render_raw && $field_properties['type'] !== 'true_false') {
             $render_output = apply_filters('acf/admin_columns/no_value_placeholder', '—', $field_properties, $field_value, $post_id);
         }
 
@@ -552,15 +552,10 @@ class FleiACFAdminColumns
         );
 
         foreach ($field_settings as $settings_args) {
-            $settings_args['class'] = isset($settings_args['class']) ? $settings_args['class'].' aac-field-settings-' . $settings_args['name'] : '';
+            $settings_args['class'] = isset($settings_args['class']) ? $settings_args['class'] . ' aac-field-settings-' . $settings_args['name'] : '';
             acf_render_field_setting($field, $settings_args, false);
         }
 
-    }
-
-    private function get_supported_post_types()
-    {
-        return $post_types = get_post_types(array('show_ui' => true, 'show_in_menu' => true));
     }
 
     /**
@@ -576,9 +571,9 @@ class FleiACFAdminColumns
     {
 
         if (function_exists('get_current_screen') && $screen = get_current_screen()) {
-            $this->screen_is_post_type_index = $screen->base == 'edit' && $screen->post_type;
-            $this->screen_is_taxonomy_index = $screen->base == 'edit-tags' && $screen->taxonomy;
-            $this->screen_is_user_index = $screen->base == 'users';
+            $this->screen_is_post_type_index = $screen->base === 'edit' && $screen->post_type;
+            $this->screen_is_taxonomy_index = $screen->base === 'edit-tags' && $screen->taxonomy;
+            $this->screen_is_user_index = $screen->base === 'users';
 
             if ($this->screen_is_post_type_index || $this->screen_is_taxonomy_index || $this->screen_is_user_index) {
                 return $screen;
@@ -606,7 +601,7 @@ class FleiACFAdminColumns
      */
     private function get_clean_column($dirty_column)
     {
-        $clean_column = str_replace(self::COLUMN_NAME_PREFIX, '', $dirty_column);
+        return str_replace(self::COLUMN_NAME_PREFIX, '', $dirty_column);
     }
 
     /**
