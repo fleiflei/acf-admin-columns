@@ -3,7 +3,7 @@
  * Plugin Name: Admin Columns for ACF Fields
  * Plugin URI: https://wordpress.org/plugins/acf-admin-columns/
  * Description: Add columns for your ACF fields to post and taxonomy index pages in the WP backend.
- * Version: 0.2.0
+ * Version: 0.2.1
  * Author: Florian Eickhorst
  * Author URI: http://www.fleimedia.com/
  * License: GPL
@@ -387,108 +387,114 @@ class FleiACFAdminColumns
 
         if (!$render_raw) {
 
-        switch ($field_properties['type']) {
-            case 'color_picker':
-                if ($field_value) {
-                    $render_output .= '<div style="display:inline-block;height:20px;width:100%;background-color:' . $field_value . ';white-space:nowrap;">' . $field_value . '</div><br>';
-                }
-                break;
-            case 'taxonomy':
-                if (is_array($field_value)) {
-                    foreach ($field_value as $field_taxonomy) {
-                        $render_output .= $field_taxonomy->name . ' (' . $field_taxonomy->term_id . ')';
+            switch ($field_properties['type']) {
+                case 'color_picker':
+                    if ($field_value) {
+                        $render_output .= '<div style="display:inline-block;height:20px;width:100%;background-color:' . $field_value . ';white-space:nowrap;">' . $field_value . '</div><br>';
                     }
-                }
-                break;
-            case 'file':
-                $render_output = isset($field_value['filename']) ? $field_value['filename'] : ''; // @todo multiple values
-                break;
-            case 'wysiwyg':
-                $render_output = wp_trim_excerpt(strip_tags($field_value));
-                break;
-            case 'link':
-                if (is_array($field_value) && isset($field_value['url'])) {
-                    $render_output = $field_value['url'];
-                }
-                break;
-            case 'post_object':
-            case 'relationship':
-                $p = $field_value;
-                if (is_array($field_value) && !empty($field_value)) {
-                    $p = $field_value[0];
-                    $remaining_items_count = count($field_value) - 1;
-                }
-                if ($p) {
-                    $render_output = '<a href="' . get_edit_post_link($p, false) . '">' . get_the_title($p) . '</a>';
-                }
-                break;
-            case 'user':
-                $u = $field_value;
-                if (is_array($field_value) && !empty($field_value)) {
-                    $u = $field_value[0];
-                    $render_output = '<a href="' . get_edit_user_link($u) . '">' . $u['display_name'] . '</a>';
-                    $remaining_items_count = count($field_value) - 1;
-                }
-                break;
-            case 'image':
-                $field_images = array($field_value);
-            case 'gallery':
-
-                if (!empty($field_images)) {
-                    $preview_image = $field_images[0]; // use first image as preview
-                    $preview_image_id = 0;
-                    $preview_image_url = '';
-
-                    if (is_array($field_value) && isset($preview_image['ID'])) {
-                        $preview_image_id = $preview_image['ID'];
-                    } else if (intval($preview_image) > 0) {
-                        $preview_image_id = intval($preview_image);
-                    }
-
-                    if (filter_var($preview_image, FILTER_VALIDATE_URL)) {
-                        $preview_image_url = $preview_image;
-                    } else if ($preview_image_id > 0) {
-                        $preview_image_size = apply_filters('acf/admin_columns/preview_image_size', 'thumbnail', $field_properties, $field_value);
-                        $img = wp_get_attachment_image_src($preview_image_id, $preview_image_size);
-                        if (is_array($img) && isset($img[0])) {
-                            $preview_image_url = $img[0];
+                    break;
+                case 'taxonomy':
+                    if (is_array($field_value)) {
+                        foreach ($field_value as $field_taxonomy) {
+                            $render_output .= $field_taxonomy->name . ' (' . $field_taxonomy->term_id . ')';
                         }
                     }
+                    break;
+                case 'file':
+                    $render_output = isset($field_value['filename']) ? $field_value['filename'] : ''; // @todo multiple values
+                    break;
+                case 'wysiwyg':
+                    $render_output = wp_trim_excerpt(strip_tags($field_value));
+                    break;
+                case 'link':
+                    if (is_array($field_value) && isset($field_value['url'])) {
+                        $render_output = $field_value['url'];
+                    }
+                    break;
+                case 'post_object':
+                case 'relationship':
+                    $p = $field_value;
+                    if (is_array($field_value) && !empty($field_value)) {
+                        $p = $field_value[0];
+                        $remaining_items_count = count($field_value) - 1;
+                    }
+                    if ($p) {
+                        $render_output = '<a href="' . get_edit_post_link($p, false) . '">' . get_the_title($p) . '</a>';
+                    }
+                    break;
+                case 'user':
+                    $u = $field_value;
+                    if (is_array($field_value) && !empty($field_value)) {
+                        $u = $field_value[0];
+                        $render_output = '<a href="' . get_edit_user_link($u) . '">' . $u['display_name'] . '</a>';
+                        $remaining_items_count = count($field_value) - 1;
+                    }
+                    break;
+                case 'image':
+                    $field_images = array($field_value);
+                case 'gallery':
 
-                    $preview_image_url = apply_filters('acf/admin_columns/preview_image_url', $preview_image_url, $field_properties, $field_value);
+                    if (!empty($field_images)) {
+                        $preview_image = $field_images[0]; // use first image as preview
+                        $preview_image_id = 0;
+                        $preview_image_url = '';
 
-                    if ($preview_image_url) {
-                        $render_output = "<img style='width:100%;height:auto;' src='$preview_image_url'>";
+                        if (is_array($field_value) && isset($preview_image['ID'])) {
+                            $preview_image_id = $preview_image['ID'];
+                        } else if (intval($preview_image) > 0) {
+                            $preview_image_id = intval($preview_image);
+                        }
 
-                        if ($field_images) {
-                            $remaining_items_count = count($field_images) - $preview_item_count;
+                        if (filter_var($preview_image, FILTER_VALIDATE_URL)) {
+                            $preview_image_url = $preview_image;
+                        } else if ($preview_image_id > 0) {
+                            $preview_image_size = apply_filters('acf/admin_columns/preview_image_size', 'thumbnail', $field_properties, $field_value);
+                            $img = wp_get_attachment_image_src($preview_image_id, $preview_image_size);
+                            if (is_array($img) && isset($img[0])) {
+                                $preview_image_url = $img[0];
+                            }
+                        }
+
+                        $preview_image_url = apply_filters('acf/admin_columns/preview_image_url', $preview_image_url, $field_properties, $field_value);
+
+                        if ($preview_image_url) {
+                            $render_output = "<img style='width:100%;height:auto;' src='$preview_image_url'>";
+
+                            if ($field_images) {
+                                $remaining_items_count = count($field_images) - $preview_item_count;
+                            }
                         }
                     }
-                }
-                break;
-            case 'number':
-            case 'true_false':
-            case 'text':
-            case 'textarea':
-                $render_raw = true;
-                case 'checkbox':
+                    break;
                 case 'radio':
-            case 'select':
-                    if (!empty($field_properties['choices'][$field_value])) {
-                        $render_output = $field_properties['choices'][$field_value] . ' (' . $field_value . ')';
+                case 'checkbox':
+                case 'select':
+                    if (!empty($field_value) && isset($field_properties['return_format'])) {
+                        if ($field_properties['type'] === 'checkbox' || (!empty($field_properties['multiple']))) {
+                            $render_output = array();
+                            foreach ($field_value as $field_value_item) {
+                                $render_output[] = $this->render_value_label_field($field_properties['return_format'], $field_properties['choices'], $field_value_item);
+                            }
+                        } else {
+                            $render_output = $this->render_value_label_field($field_properties['return_format'], $field_properties['choices'], $field_value);
+                        }
                         break;
                     }
-            case 'range':
-            case 'email':
-            case 'url':
-            case 'password':
-            case 'button_group':
-            case 'page_link':
-            case 'date_picker':
-            case 'time_picker':
-            default:
-                $render_output = $field_value;
-        }
+                case 'number':
+                case 'true_false':
+                case 'text':
+                case 'textarea':
+                case 'range':
+                case 'email':
+                case 'url':
+                case 'password':
+                case 'button_group':
+                case 'page_link':
+                case 'date_picker':
+                case 'time_picker':
+                default:
+                    $render_output = $field_value;
+            }
 
             $link_wrap_url = apply_filters('acf/admin_columns/link_wrap_url', true, $field_properties, $field_value, $post_id);
 
@@ -601,8 +607,30 @@ class FleiACFAdminColumns
     private function get_clean_column($dirty_column)
     {
         $clean_column = str_replace(self::COLUMN_NAME_PREFIX, '', $dirty_column);
+    }
 
-        return $clean_column;
+    /**
+     * Renders the value of a select, radio or checkbox field based on the return format
+     *
+     * @param $return_format
+     * @param $choices
+     * @param $field_value
+     * @return mixed|string
+     */
+    private function render_value_label_field($return_format, $choices, $field_value)
+    {
+        if (empty($field_value)) {
+            return $field_value;
+        }
+        $render_output = $field_value;
+        if ($return_format === 'value' && !empty($choices[$field_value])) {
+            $render_output = $field_value . ' (' . $choices[$field_value] . ')';
+        } else if ($return_format === 'label' && array_search($field_value, $choices)) {
+            $render_output = array_search($field_value, $choices) . ' (' . $field_value . ')';
+        } else if ($return_format === 'array' && array_key_exists('value', $field_value) && array_key_exists('label', $field_value)) {
+            $render_output = $field_value['value'] . ' (' . $field_value['label'] . ')';
+        }
+        return $render_output;
     }
 
 }
