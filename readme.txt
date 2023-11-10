@@ -4,19 +4,19 @@ Contributors: flei
 Tags: advanced custom fields, acf, admin columns
 Requires at least: 4.6
 Tested up to: 6.3.1
-Stable tag: 4.3
+Stable tag: 0.2.1
 Requires PHP: 5.2.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Date: 06.10.2022
-Version: 0.2.0
+Date: 10.11.2023
+Version: 0.2.1
 
 
 Allows you to enable columns for your ACF fields in post and taxonomy overviews (e.g. "All Posts") in the Wordpress admin backend. This plugin requires a recent version of plugin "Advanced Custom Fields" (ACF).
 
 == Description ==
 
-Use this plugin to show ACF fields in the "All Posts" or "Taxonomy" table view in the Wordpress admin backend.
+Use this plugin to show ACF fields in the "All Posts", Taxonomy or User table view in the Wordpress admin backend.
 
 Simply enable the new option "Admin Column" in your ACF field settings for any regular field (see exceptions below). Now there will be an extra column for your field shown in any overview of posts, pages, taxonomies or your custom post types or taxonomies (e.g. "All Pages").
 
@@ -40,8 +40,7 @@ Github: https://github.com/fleiflei/acf-admin-columns
 2. In ACF open/create your "field group" within ACF and note the post type that this field group applies to (at the bottom). 
 3. Open any field for editing (see exceptions below).
 4. Enable the "Admin Column" option in the field settings. 
-5. Enable post types and/or taxonomies for which the column should be shown.
-6. Save the field group and go to the overview page of the post type or taxonomy (e.g. "Posts > All Posts", or "Pages > All Pages") that you noted above and notice the newly added column for your field.
+5. Save the field group and go to the "All posts" view of the post type or taxonomy (e.g. "Posts > All Posts", or "Pages > All Pages") and notice the newly added column for your field.
 
 == Advanced Usage ==
 
@@ -74,7 +73,7 @@ Allows you to change which columns are displayed on the current admin screen.
     add_filter('acf/admin_columns/admin_columns','my_admin_columns');
 
 = "acf/admin_columns/sortable_columns" =
-Change which columns should be sortable. By default every column is sortable. 
+Change which columns should be sortable. By default, every column is sortable.
 
 **Parameters**
 $columns - Array of all ACF fields to be shown in current screen.  
@@ -83,7 +82,42 @@ $columns - Array of all ACF fields to be shown in current screen.
 Allows you to modify the output of a certain $field in every row of a posts table.
 
 **Parameters**
-$field_value - The field value   
+$field_value - The field value
+
+= "acf/admin_columns/exclude_field_types" =
+Change which field types should not have the admin column option in the field settings.
+
+**Parameters**
+$excluded_field_types - array of excluded_field_types
+
+**Example: disable the admin column option for TEXT fields**
+
+    function my_exclude_field_types($excluded_field_types) {
+      $excluded_field_types[] = 'text';
+      return $excluded_field_types;
+    }
+    add_filter('acf/admin_columns/exclude_field_types','my_exclude_field_types');
+
+= "acf/admin_columns/preview_image_size" =
+Change the preview image size for image or gallery fields.
+
+**Parameters**
+$preview_image_size - string with image size name
+
+**Example: change preview image size to "medium"**
+
+    function my_preview_image_size($preview_image_size) {
+      return 'medium';
+    }
+    add_filter('acf/admin_columns/preview_image_size','my_preview_image_size');
+
+
+= "acf/admin_columns/preview_image_url" =
+Allows for manipulation of the url of the preview image.
+
+**Parameters**
+$preview_image_url - string with image url
+
 
 == Installation ==
 
@@ -95,9 +129,29 @@ This section describes how to install the plugin and get it working.
 
 == Frequently Asked Questions ==
 
-None yet, feel free to ask.
+=== How can I change the preview image size of image and gallery fields? ===
+
+Use the filter "acf/admin_columns/preview_image_size" to change the preview image size. See "Filters" section above for details.
 
 == Changelog ==
+
+= 0.2.1 =
+*Release date: 10.11.2023*
+
+* added compatibility with PHP 8.2
+* select, radio & checkbox fields: improved handling of return formats
+
+= 0.2.0 =
+*Release date: 06.10.2023*
+
+* New feature: searchable columns for post archives. Searching columns in taxonomies and users will follow.
+* Removed the field settings for the location where the column should be rendered (post type, taxonomy, user). A field column will be rendered according to the "location rules" in the ACF field group settings.
+* Default values are now shown in the column if the field is empty.
+* Fix: numeric sorting for 'number' field instead of string sorting
+* New filter: 'acf/admin_columns/preview_image_size' - set preview size for image or gallery fields
+* New filter: 'acf/admin_columns/preview_image_url' - allows for manipulation of the preview_image_url in image or gallery fields
+* New filter: 'acf/admin_columns/link_wrap_url' - automatically wrap url in link to that url
+* New filter: 'acf/admin_columns/render_raw' - set to true to render raw field value (e.g. for image fields)
 
 = 0.1.2 =
 *Release date: 17.12.2019*
