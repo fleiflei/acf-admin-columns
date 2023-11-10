@@ -62,13 +62,13 @@ class FleiACFAdminColumns
      */
     public function action_add_acf_actions()
     {
-        $exclude = apply_filters('acf/admin_columns/exclude_field_types', $this->exclude_field_types);
+        $this->exclude_field_types = apply_filters('acf/admin_columns/exclude_field_types', $this->exclude_field_types);
         $acf_version = acf_get_setting('version');
         $sections = acf_get_field_types();
         if ((version_compare($acf_version, '5.5.0', '<') || version_compare($acf_version, '5.6.0', '>=')) && version_compare($acf_version, '5.7.0', '<')) {
             foreach ($sections as $section) {
                 foreach ($section as $type => $label) {
-                    if (!in_array($type, $exclude)) {
+                    if (!in_array($type, $this->exclude_field_types)) {
                         add_action('acf/render_field_settings/type=' . $type, array($this, 'render_field_settings'), 1);
                     }
                 }
@@ -76,7 +76,7 @@ class FleiACFAdminColumns
         } else {
             // >= 5.5.0 || < 5.6.0
             foreach ($sections as $type => $settings) {
-                if (!in_array($type, $exclude)) {
+                if (!in_array($type, $this->exclude_field_types)) {
                     add_action('acf/render_field_settings/type=' . $type, array($this, 'render_field_settings'), 1);
                 }
             }
@@ -103,7 +103,7 @@ class FleiACFAdminColumns
             $field_groups_args['user_form'] = 'all';
         }
 
-        // get all field groups for the current post type and check every containing field if it should become a
+        // get all field groups for the current post type and check every containing field if it should be rendered
         $field_groups = acf_get_field_groups($field_groups_args);
 
         foreach ($field_groups as $fgroup) {
@@ -123,15 +123,13 @@ class FleiACFAdminColumns
 
         }
 
-        $this->admin_columns = apply_filters('acf/admin_columns/admin_columns', $this->admin_columns);
+        $this->admin_columns = apply_filters('acf/admin_columns/admin_columns', $this->admin_columns,  $field_groups);
 
         if (!empty($this->admin_columns)) {
             if ($this->screen_is_post_type_index) {
                 add_filter('manage_' . $screen->post_type . '_posts_columns', array($this, 'filter_manage_posts_columns')); // creates the columns
                 add_filter('manage_' . $screen->id . '_sortable_columns', array($this, 'filter_manage_sortable_columns')); // make columns sortable
-//                add_action('manage_' . $screen->post_type . '_posts_custom_column', array($this, 'action_manage_posts_custom_column'), 10, 2); // outputs the columns values for each post
                 add_action('manage_' . $screen->post_type . '_posts_custom_column', array($this, 'filter_manage_custom_column'), 10, 2); // outputs the columns values for each post
-
                 add_filter('posts_join', array($this, 'filter_search_join'));
                 add_filter('posts_where', array($this, 'filter_search_where'));
                 add_filter('posts_distinct', array($this, 'filter_search_distinct'));
@@ -157,15 +155,15 @@ class FleiACFAdminColumns
     {
 
         if ($this->is_acf_active() && $this->is_valid_admin_screen() && $query->query_vars && isset($query->query_vars['orderby'])) {
-            $orderby = $query->query_vars['orderby'];
+            $orderby_column = $query->query_vars['orderby'];
 
-            if (is_string($orderby) && array_key_exists($orderby, $this->admin_columns)) {
+            if (is_string($orderby_column) && array_key_exists($orderby_column, $this->admin_columns)) {
 
                 // this makes sure we sort also when the custom field has never been set on some posts before
                 $meta_query = array(
                     'relation' => 'OR',
-                    array('key' => $this->get_clean_column($orderby), 'compare' => 'NOT EXISTS'), // 'NOT EXISTS' needs to go first for proper sorting
-                    array('key' => $this->get_clean_column($orderby), 'compare' => 'EXISTS'),
+                    array('key' => $this->get_clean_column($orderby_column), 'compare' => 'NOT EXISTS'), // 'NOT EXISTS' needs to go first for proper sorting
+                    array('key' => $this->get_clean_column($orderby_column), 'compare' => 'EXISTS'),
                 );
 
                 $query->set('meta_query', $meta_query);
@@ -173,12 +171,12 @@ class FleiACFAdminColumns
                 $order_type = 'meta_value';
 
                 // make numerical field ordering useful:
-                $field_properties = acf_get_field($this->get_clean_column($orderby));
+                $field_properties = acf_get_field($this->get_clean_column($orderby_column));
                 if (isset($field_properties['type']) && $field_properties['type'] == 'number') {
                     $order_type = 'meta_value_num';
                 }
 
-                $order_type = apply_filters('acf/admin_columns/sort_order_type', $order_type, $orderby);
+                $order_type = apply_filters('acf/admin_columns/sort_order_type', $order_type, $field_properties);
 
                 $query->set('orderby', $order_type);
             }
@@ -221,36 +219,13 @@ class FleiACFAdminColumns
         return $columns;
     }
 
-    /**
-     * WP Hook for displaying the field value inside of a columns cell in posts index pages
-     *
-     * @hook
-     * @param $column
-     * @param $post_id
-     */
-    public function action_manage_posts_custom_column($column, $post_id)
-    {
-
-        if (array_key_exists($column, $this->admin_columns)) {
-
-            $clean_column = $this->get_clean_column($column);
-
-            $field_value = $this->render_column_field(array('column' => $column, 'post_id' => $post_id));
-
-            $field_value = apply_filters_deprecated('acf/admin_columns/column/' . $clean_column, $field_value, '0.2.0', 'acf/admin_columns/column/' . $clean_column . '/value');
-            $field_value = apply_filters('acf/admin_columns/column/' . $clean_column . '/value', $field_value);
-
-            echo $field_value;
-        }
-    }
-
     public function filter_manage_custom_column($arg1, $arg2 = null, $arg3 = null)
     {
 
         $current_filter = current_filter();
         if ($current_filter) {
             $render_args = array();
-            $is_action = true;
+            $echo_value = true;
 
             if (strpos($current_filter, '_posts_custom_column')) {
                 $render_args['column'] = $arg1;
@@ -258,7 +233,7 @@ class FleiACFAdminColumns
             } elseif (strpos($current_filter, '_custom_column')) {
                 $render_args['column'] = $arg2;
                 $render_args['post_id'] = $arg3;
-                $is_action = false;
+                $echo_value = false;
 
                 $screen = $this->is_valid_admin_screen();
 
@@ -271,13 +246,13 @@ class FleiACFAdminColumns
             }
             if (array_key_exists($render_args['column'], $this->admin_columns)) {
                 $clean_column = $this->get_clean_column($render_args['column']);
-                $field_value = $this->render_column_field($render_args);
-                $field_value = apply_filters_deprecated('acf/admin_columns/column/' . $clean_column, array($field_value), '0.2.0', 'acf/admin_columns/column/' . $clean_column . '/value');
-                $field_value = apply_filters('acf/admin_columns/column/' . $clean_column . '/value', $field_value);
-                if ($is_action) {
-                    echo $field_value;
+                $rendered_field_value = $this->render_column_field($render_args);
+                $rendered_field_value = apply_filters_deprecated('acf/admin_columns/column/' . $clean_column, array($rendered_field_value), '0.2.0', 'acf/admin_columns/column/' . $clean_column . '/value');
+                $rendered_field_value = apply_filters_deprecated('acf/admin_columns/column/' . $clean_column . '/value', array($rendered_field_value), '0.2.2', 'acf/admin_columns/render_output');
+                if ($echo_value) {
+                    echo $rendered_field_value;
                 } else {
-                    return $field_value;
+                    return $rendered_field_value;
                 }
             }
         }
@@ -301,11 +276,10 @@ class FleiACFAdminColumns
             $screen = get_current_screen();
             $taxonomy = $screen->taxonomy;
 
-            $field_value = $this->render_column_field(array('column' => $column, 'post_id' => $post_id, 'taxonomy' => $taxonomy));
+            $rendered_field_value = $this->render_column_field(array('column' => $column, 'post_id' => $post_id, 'taxonomy' => $taxonomy));
+            $rendered_field_value = apply_filters_deprecated('acf/admin_columns/column/' . $clean_column, $rendered_field_value, '0.2.2', 'acf/admin_columns/render_output');
 
-            $field_value = apply_filters('acf/admin_columns/column/' . $clean_column, $field_value);
-
-            $content = $field_value;
+            $content = $rendered_field_value;
         }
 
         return $content;
@@ -370,6 +344,7 @@ class FleiACFAdminColumns
         $clean_column = $this->get_clean_column($column);
 
         $field_value = get_field($clean_column, $post_id);
+        $original_field_value = $field_value;
 
         $render_output = '';
 
@@ -377,13 +352,16 @@ class FleiACFAdminColumns
         $field_images = $field_value;
         $preview_item_count = 1;
         $remaining_items_count = 0;
-        $render_raw = apply_filters('acf/admin_columns/column/' . $clean_column . '/render_raw', false, $field_properties, $field_value, $post_id);
+        $render_raw = false;
+        $render_raw = apply_filters_deprecated('acf/admin_columns/column/' . $clean_column . '/render_raw', array($render_raw, $field_properties, $original_field_value, $post_id), '0.2.2', 'acf/admin_columns/render_raw');
+        $render_raw = apply_filters('acf/admin_columns/render_raw', $render_raw, $field_properties, $original_field_value, $post_id);
 
         if (empty($field_value) && !empty($field_properties['default_value'])) {
             $field_value = apply_filters('acf/admin_columns/default_value', $field_properties['default_value'], $field_properties, $field_value, $post_id);
         }
 
-        $field_value = apply_filters('acf/admin_columns/column/' . $clean_column . '/before_render_value', $field_value, $field_properties, $post_id);
+        $field_value = apply_filters_deprecated('acf/admin_columns/column/' . $clean_column . '/before_render_value', array($field_value, $field_properties, $post_id), '0.2.2', 'acf/admin_columns/before_render_output');
+        $field_value = apply_filters('acf/admin_columns/before_render_output', $field_value, $field_properties, $post_id);
 
         if (!$render_raw) {
 
@@ -423,7 +401,6 @@ class FleiACFAdminColumns
                     }
                     break;
                 case 'user':
-                    $u = $field_value;
                     if (is_array($field_value) && !empty($field_value)) {
                         $u = $field_value[0];
                         $render_output = '<a href="' . get_edit_user_link($u) . '">' . $u['display_name'] . '</a>';
@@ -448,14 +425,14 @@ class FleiACFAdminColumns
                         if (filter_var($preview_image, FILTER_VALIDATE_URL)) {
                             $preview_image_url = $preview_image;
                         } else if ($preview_image_id > 0) {
-                            $preview_image_size = apply_filters('acf/admin_columns/preview_image_size', 'thumbnail', $field_properties, $field_value);
+                            $preview_image_size = apply_filters('acf/admin_columns/preview_image_size', 'thumbnail', $field_properties, $original_field_value);
                             $img = wp_get_attachment_image_src($preview_image_id, $preview_image_size);
                             if (is_array($img) && isset($img[0])) {
                                 $preview_image_url = $img[0];
                             }
                         }
 
-                        $preview_image_url = apply_filters('acf/admin_columns/preview_image_url', $preview_image_url, $field_properties, $field_value);
+                        $preview_image_url = apply_filters('acf/admin_columns/preview_image_url', $preview_image_url, $field_properties, $original_field_value);
 
                         if ($preview_image_url) {
                             $render_output = "<img style='width:100%;height:auto;' src='$preview_image_url'>";
@@ -496,15 +473,16 @@ class FleiACFAdminColumns
                     $render_output = $field_value;
             }
 
-            $link_wrap_url = apply_filters('acf/admin_columns/link_wrap_url', true, $field_properties, $field_value, $post_id);
+            $link_wrap_url = apply_filters('acf/admin_columns/link_wrap_url', true, $field_properties, $original_field_value, $post_id);
 
-            if (filter_var($render_output, FILTER_VALIDATE_URL) && $link_wrap_url) {
+            if ($link_wrap_url && filter_var($render_output, FILTER_VALIDATE_URL)) {
                 $render_output = '<a href="' . $render_output . '">' . $render_output . '</a>';
             }
 
             // list array entries
             if (is_array($render_output)) {
-                $render_output = implode(', ', $render_output);
+                $array_render_separator = apply_filters('acf/admin_columns/array_render_separator', ', ', $field_properties, $original_field_value, $post_id);
+                $render_output = implode($array_render_separator, $render_output);
             }
 
         }
@@ -512,12 +490,16 @@ class FleiACFAdminColumns
 
         // default "no value" or "empty" output
         if (empty($render_output) && !$render_raw && $field_properties['type'] !== 'true_false') {
-            $render_output = apply_filters('acf/admin_columns/no_value_placeholder', '—', $field_properties, $field_value, $post_id);
+            $render_output = apply_filters('acf/admin_columns/no_value_placeholder', '—', $field_properties, $original_field_value, $post_id);
         }
 
         // search term highlighting
         if ($search_term = $this->is_search()) {
-            $search_preg_replace_pattern = apply_filters('acf/admin_columns/search/highlight_preg_replace_pattern', '<span style="background-color:#FFFF66; color:#000000;">\\0</span>', $search_term, $field_properties, $field_value, $post_id);
+
+            $search_preg_replace_pattern = '<span style="background-color:#FFFF66; color:#000000;">\\0</span>';
+            $search_preg_replace_pattern = apply_filters_deprecated('acf/admin_columns/search/highlight_preg_replace_pattern', array($search_preg_replace_pattern, $search_term, $field_properties, $original_field_value, $post_id), '0.2.2', 'acf/admin_columns/highlight_search_term_preg_replace_pattern');
+            $search_preg_replace_pattern = apply_filters('acf/admin_columns/highlight_search_term_preg_replace_pattern', $search_preg_replace_pattern, $search_term, $field_properties, $original_field_value, $post_id);
+
             $render_output = preg_replace('#' . preg_quote($search_term) . '#i', $search_preg_replace_pattern, $render_output);
         }
 
@@ -525,7 +507,7 @@ class FleiACFAdminColumns
             $render_output .= "<br>and $remaining_items_count more";
         }
 
-        return apply_filters('acf/admin_columns/render_output', $render_output, $field_properties, $field_value, $post_id);
+        return apply_filters('acf/admin_columns/render_output', $render_output, $field_properties, $original_field_value, $post_id);
     }
 
     /**

@@ -3,13 +3,13 @@
 Contributors: flei
 Tags: advanced custom fields, acf, admin columns
 Requires at least: 4.6
-Tested up to: 6.3.1
+Tested up to: 6.4.1
 Stable tag: 0.2.1
 Requires PHP: 5.2.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Date: 10.11.2023
-Version: 0.2.1
+Version: 0.2.2
 
 
 Allows you to enable columns for your ACF fields in post and taxonomy overviews (e.g. "All Posts") in the Wordpress admin backend. This plugin requires a recent version of plugin "Advanced Custom Fields" (ACF).
@@ -60,57 +60,279 @@ Due to their nature the option "Admin Column" is not shown in ACF for these fiel
 == Filters ==
 
 = "acf/admin_columns/admin_columns" =
+
 Allows you to change which columns are displayed on the current admin screen. 
 
 **Parameters**
+
     $fields - Array of all ACF fields to be shown in current screen.
+    $field_groups - Array of all ACF field groups to be shown in current screen.
 
 **Example:**
 
-    function my_admin_columns($fields) {
-      $fields['my_field'] = 'my_field';
+Remove 'my_field' from the columns of the post type 'my_custom_post_type', even if it is set to be shown in the field settings.
+
+    function my_admin_columns($fields, $field_groups) {
+
+        $screen = get_current_screen();
+        if (!empty($screen) && $screen->post_type == 'my_custom_post_type' && isset($fields['my_field'])) {
+            unset($fields['my_field']);
+        }
+        return $fields;
     }
-    add_filter('acf/admin_columns/admin_columns','my_admin_columns');
+    add_filter('acf/admin_columns/admin_columns','my_admin_columns', 10, 3);
 
 = "acf/admin_columns/sortable_columns" =
+
 Change which columns should be sortable. By default, every column is sortable.
 
 **Parameters**
-$columns - Array of all ACF fields to be shown in current screen.  
 
-= "acf/admin_columns/column/$field" =
+    $columns - Array of all ACF fields to be shown in current screen.
+
+= "acf/admin_columns/sort_order_type" = 
+
+Change the sort order type for a certain field. By default, most fields are sorted by string comparison. Number fields are ordered by numeric comparison.
+
+**Parameters**
+
+    $sort_order_type - The sort order type (either 'string' or 'numeric')
+    $field_properties - the ACF field properties
+
+**Example:**
+
+Change the sort order type for the field 'my_field' to 'meta_value_num' (see https://developer.wordpress.org/reference/classes/wp_query/#order-orderby-parameters).
+
+    function my_sort_order_type($sort_order_type, $field_properties) {
+        if ($field_properties['name'] == 'my_field') {
+            return 'meta_value_num';
+        }
+        return $sort_order_type;
+    }
+    add_filter('acf/admin_columns/sort_order_type','my_sort_order_type', 10, 2);
+
+= "acf/admin_columns/column/render_output" =
+
 Allows you to modify the output of a certain $field in every row of a posts table.
 
 **Parameters**
-$field_value - The field value
+
+    $render_output - The field value after it was prepared for output
+    $field_properties - the ACF field properties
+    $field_value - the original raw field value
+    $post_id - the post id
+
+**Example:**
+
+Output then length of text field 'my_text_field' instead of its contents.
+
+    function my_column_value($rendered_output, $field_properties, $field_value, $post_id) {
+        if ($field_properties['name'] == 'my_text_field') {
+            return strlen($field_value);
+        }
+        return $rendered_output;
+    }
+    add_filter('acf/admin_columns/column/render_output','my_column_value', 10, 4);
+
+= "acf/admin_columns/render_raw" = 
+
+Output a field value without any formatting. This is useful e.g. for image fields, where you might want to output the raw image url instead of a rendered image tag.
+
+**Parameters**
+
+    $render_raw - boolean, set to true to render raw field value
+    $field_properties - the ACF field properties
+    $field_value - the original raw field value
+    $post_id - the post id
+
+**Example:**
+
+Output the raw image url for image field 'my_image_field' for post ID 123.
+
+    function my_render_raw($render_raw, $field_properties, $field_value, $post_id) {
+        if ($field_properties['name'] == 'my_image_field' && $post_id == 123) {
+            return true;
+        }
+        return $render_raw;
+    }
+    add_filter('acf/admin_columns/render_raw','my_render_raw', 10, 4);
+
+= "acf/admin_columns/default_value" =
+
+Allows you to override the default value for a certain field if it is empty. This only works, if the field has a default value set in the field settings.
+
+**Parameters**
+
+    $default_value - The default value
+    $field_properties - the ACF field properties
+    $field_value - the original raw field value
+    $post_id - the post id
+
+**Example:**
+
+Change the default value for field 'my_field' to 'my default value' if it is empty.
+
+    function my_default_value($default_value, $field_properties, $field_value, $post_id) {
+        if ($field_properties['name'] == 'my_field' && empty($field_value)) {
+            return 'my default value';
+        }
+        return $default_value;
+    }
+    add_filter('acf/admin_columns/default_value','my_default_value', 10, 4);
+
+= "acf/admin_columns/before_render_output" = 
+
+Allows you to modify the field value of a certain $field before it is prepared for rendering. This filter is applied before 'acf/admin_columns/column/render_output'.
+
+**Parameters**
+
+    $field_value - the original raw field value
+    $field_properties - the ACF field properties
+    $post_id - the post id
+
+
+= "acf/admin_columns/preview_image_size" =
+
+Change the preview image size for image or gallery fields. Default value is "thumbnail".
+
+**Parameters**
+
+    $preview_image_size - string with image size name
+    $field_properties - the ACF field properties
+    $post_id - the post id
+
+**Example**
+
+Change preview image size to "medium"
+
+    function my_preview_image_size($preview_image_size, $field_properties, $post_id) {
+            return 'medium';
+    }
+    add_filter('acf/admin_columns/preview_image_size','my_preview_image_size', 10, 3);
+
+= "acf/admin_columns/preview_image_url" = 
+
+Allows for manipulation of the url of the preview image for image or gallery fields.
+
+**Parameters**
+
+    $preview_image_url - string with image url
+    $field_properties - the ACF field properties
+    $post_id - the post id
+
+**Example**
+
+Replace preview image of field 'my_image_field' for post ID 123 to a random 100x100px image from https://picsum.photos.
+
+    function my_preview_image_url($preview_image_url, $field_properties, $post_id) {
+        if ($field_properties['name'] == 'my_image_field' && $post_id == 123) {
+            return 'https://picsum.photos/100/100';
+        }
+        return $preview_image_url;
+    }
+    add_filter('acf/admin_columns/preview_image_url','my_preview_image_url', 10, 3);
+
+
+= "acf/admin_columns/link_wrap_url" = 
+
+Automatically wrap url in link to that url. This is useful e.g. for text fields that contain a url, where you might want to output a link to the url instead of the url itself.
+
+**Parameters**
+
+    $link_wrap_url - boolean, set to true to wrap url in link
+    $field_properties - the ACF field properties
+    $field_value - the original raw field value
+    $post_id - the post id
+
+**Example:**
+
+Wrap url in link for text field 'my_link_text_field'.
+
+    function my_link_wrap_url($link_wrap_url, $field_properties, $field_value, $post_id) {
+        if ($field_properties['name'] == 'my_link_text_field') {
+            return true;
+        }
+        return $link_wrap_url;
+    }
+    add_filter('acf/admin_columns/link_wrap_url','my_link_wrap_url', 10, 4);
+
+= "acf/admin_columns/array_render_separator" = 
+
+Allows you to change the separator for array fields (e.g. repeater, flexible content, gallery). Default value is ", ".
+
+**Parameters**
+
+    $array_render_separator - string with separator, default = ", "
+    $field_properties - the ACF field properties
+    $field_value - the original raw field value
+    $post_id - the post id
+
+**Example:**
+
+Output every array item on a new line, using the <br> tag.
+
+    function my_array_render_separator($array_render_separator, $field_properties, $field_value, $post_id) {
+        return "<br>";
+    }
+    add_filter('acf/admin_columns/array_render_separator','my_array_render_separator', 10, 4);
+
+
+= "acf/admin_columns/no_value_placeholder" =
+
+Change the placeholder for empty values. Default value is "-".
+
+**Parameters**
+
+    $no_value_placeholder - string with placeholder, default = "-"
+    $field_properties - the ACF field properties
+    $field_value - the original raw field value
+    $post_id - the post id
+
+**Example:**
+
+Output "n/a" for empty values.
+
+    function my_no_value_placeholder($no_value_placeholder, $field_properties, $field_value, $post_id) {
+        return "n/a";
+    }
+    add_filter('acf/admin_columns/no_value_placeholder','my_no_value_placeholder', 10, 4);
+
+= "acf/admin_columns/highlight_search_term_preg_replace_pattern" =
+
+Change the preg_replace pattern for highlighting the search term in the column output.
+
+**Parameters**
+
+    $highlight_search_term_preg_replace_pattern - string with preg_replace pattern, default is '<span style="background-color:#FFFF66; color:#000000;">\\0</span>' (yellow background, black font color)
+    $field_properties - the ACF field properties
+    $field_value - the original raw field value
+    $post_id - the post id
+
+**Example:**
+
+Highlight search terms with red background and white font color.
+
+    function my_highlight_search_term_preg_replace_pattern($highlight_search_term_preg_replace_pattern, $field_properties, $field_value, $post_id) {
+        return '<span style="background-color:#FF0000; color:#FFFFFF;">\\0</span>';
+    }
+    add_filter('acf/admin_columns/highlight_search_term_preg_replace_pattern','my_highlight_search_term_preg_replace_pattern', 10, 4);
+
 
 = "acf/admin_columns/exclude_field_types" =
+
 Change which field types should not have the admin column option in the field settings.
 
 **Parameters**
-$excluded_field_types - array of excluded_field_types
 
-**Example: disable the admin column option for TEXT fields**
+    $excluded_field_types - array of excluded_field_types
+
+**Example: disallow the admin column option for TEXT fields**
 
     function my_exclude_field_types($excluded_field_types) {
       $excluded_field_types[] = 'text';
       return $excluded_field_types;
     }
     add_filter('acf/admin_columns/exclude_field_types','my_exclude_field_types');
-
-= "acf/admin_columns/preview_image_size" =
-Change the preview image size for image or gallery fields.
-
-**Parameters**
-$preview_image_size - string with image size name
-
-**Example: change preview image size to "medium"**
-
-    function my_preview_image_size($preview_image_size) {
-      return 'medium';
-    }
-    add_filter('acf/admin_columns/preview_image_size','my_preview_image_size');
-
 
 = "acf/admin_columns/preview_image_url" =
 Allows for manipulation of the url of the preview image.
