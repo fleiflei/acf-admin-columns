@@ -1,15 +1,16 @@
 === Admin Columns for ACF Fields ===
 
 Contributors: flei
+Donate link: https://www.buymeacoffee.com/flei
 Tags: advanced custom fields, acf, admin columns
 Requires at least: 4.6
 Tested up to: 6.4.1
-Stable tag: 0.2.1
+Stable tag: 0.2.2
 Requires PHP: 5.2.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Date: 10.11.2023
-Version: 0.2.2
+Version: 0.3.0
 
 
 Allows you to enable columns for your ACF fields in post and taxonomy overviews (e.g. "All Posts") in the Wordpress admin backend. This plugin requires a recent version of plugin "Advanced Custom Fields" (ACF).
@@ -24,7 +25,7 @@ You can use filters (see below) to control the plugins behaviour even more preci
 
 Works on any regular ACF field (see exceptions below).
  
-Compatible with Advanced Custom Fields 5.x 
+Compatible with Advanced Custom Fields 5.x & 6.x.
 
 Github: https://github.com/fleiflei/acf-admin-columns
 
@@ -40,11 +41,10 @@ Github: https://github.com/fleiflei/acf-admin-columns
 2. In ACF open/create your "field group" within ACF and note the post type that this field group applies to (at the bottom). 
 3. Open any field for editing (see exceptions below).
 4. Enable the "Admin Column" option in the field settings. 
-5. Save the field group and go to the "All posts" view of the post type or taxonomy (e.g. "Posts > All Posts", or "Pages > All Pages") and notice the newly added column for your field.
+5. Specify the desired column position (optional).
+6. Save the field group and go to the "All posts" view of the post type or taxonomy (e.g. "Posts > All Posts", or "Pages > All Pages") and notice the newly added column for your field.
 
-== Advanced Usage ==
-
-= Excluded ACF Fields =
+== Excluded ACF Fields ==
 
 Due to their nature the option "Admin Column" is not shown in ACF for these fields:
 
@@ -65,22 +65,22 @@ Allows you to change which columns are displayed on the current admin screen.
 
 **Parameters**
 
-    $fields - Array of all ACF fields to be shown in current screen.
+    $acf_columns - Array of all ACF fields to be shown in current screen. Note that the column key is always prefixed with 'acf_'.
     $field_groups - Array of all ACF field groups to be shown in current screen.
 
 **Example:**
 
-Remove 'my_field' from the columns of the post type 'my_custom_post_type', even if it is set to be shown in the field settings.
+Remove 'my_field' from the columns of the post type 'my_custom_post_type', even if it is set to be shown in the field settings. Note that the column key is always prefixed with 'acf_'.
 
-    function my_admin_columns($fields, $field_groups) {
+    function my_admin_columns($acf_columns, $field_groups) {
 
         $screen = get_current_screen();
-        if (!empty($screen) && $screen->post_type == 'my_custom_post_type' && isset($fields['my_field'])) {
-            unset($fields['my_field']);
+        if (!empty($screen) && $screen->post_type == 'my_custom_post_type' && isset($acf_columns['acf_my_field'])) {
+            unset($acf_columns['acf_my_field']); // the key is always prefixed with 'acf_'
         }
-        return $fields;
+        return $acf_columns;
     }
-    add_filter('acf/admin_columns/admin_columns','my_admin_columns', 10, 3);
+    add_filter('acf/admin_columns/admin_columns','my_admin_columns', 10, 2);
 
 = "acf/admin_columns/sortable_columns" =
 
@@ -96,7 +96,7 @@ Change the sort order type for a certain field. By default, most fields are sort
 
 **Parameters**
 
-    $sort_order_type - The sort order type (either 'string' or 'numeric')
+    $sort_order_type - The sort order type (either 'meta_value' or 'meta_value_num')
     $field_properties - the ACF field properties
 
 **Example:**
@@ -159,7 +159,7 @@ Output the raw image url for image field 'my_image_field' for post ID 123.
 
 = "acf/admin_columns/default_value" =
 
-Allows you to override the default value for a certain field if it is empty. This only works, if the field has a default value set in the field settings.
+Allows you to override the default value for a certain field if it is empty. This only applies, if the field has a default value set in the field settings.
 
 **Parameters**
 
@@ -334,13 +334,6 @@ Change which field types should not have the admin column option in the field se
     }
     add_filter('acf/admin_columns/exclude_field_types','my_exclude_field_types');
 
-= "acf/admin_columns/preview_image_url" =
-Allows for manipulation of the url of the preview image.
-
-**Parameters**
-$preview_image_url - string with image url
-
-
 == Installation ==
 
 This section describes how to install the plugin and get it working.
@@ -351,11 +344,23 @@ This section describes how to install the plugin and get it working.
 
 == Frequently Asked Questions ==
 
-=== How can I change the preview image size of image and gallery fields? ===
+= How can I change the preview image size of image and gallery fields? =
 
 Use the filter "acf/admin_columns/preview_image_size" to change the preview image size. See "Filters" section above for details.
 
 == Changelog ==
+
+= 0.3.0 =
+
+*Release date: XX.XX.XXXX*
+
+* Improvement: Added column position field setting. This allows you to control the position of the column in the overview. Added new filter "acf/admin_columns/column_position" to change a columns position programmatically.
+
+= 0.2.2 =
+
+*Release date: 10.11.2023*
+
+* improved filters and updated filter documentation
 
 = 0.2.1 =
 *Release date: 10.11.2023*

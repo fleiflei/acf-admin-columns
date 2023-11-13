@@ -3,7 +3,7 @@
  * Plugin Name: Admin Columns for ACF Fields
  * Plugin URI: https://wordpress.org/plugins/acf-admin-columns/
  * Description: Add columns for your ACF fields to post and taxonomy index pages in the WP backend.
- * Version: 0.2.2
+ * Version: 0.3.0
  * Author: Florian Eickhorst
  * Author URI: http://www.fleimedia.com/
  * License: GPL
@@ -104,7 +104,7 @@ class FleiACFAdminColumns
     public function wp_action_prepare_columns()
     {
         $screen = $this->get_screen();
-        if ($this->admin_columns || !$screen || !$this->is_acf_active()) {
+        if (!empty($this->admin_columns) || !$screen || !$this->is_acf_active()) {
             return;
         }
 
@@ -129,11 +129,7 @@ class FleiACFAdminColumns
                     continue;
                 }
 
-                if ($this->screen_is_taxonomy_index && (!isset($field[self::ACF_SETTING_NAME . '_taxonomies']) || (is_array($field[self::ACF_SETTING_NAME . '_taxonomies']) && !in_array($screen->taxonomy, $field[self::ACF_SETTING_NAME . '_taxonomies'])))) {
-                    continue;
-                }
-
-                $this->admin_columns[self::COLUMN_NAME_PREFIX . $field['name']] = $field['label'];
+                $this->admin_columns[self::COLUMN_NAME_PREFIX . $field['name']] = $field;
             }
 
         }
@@ -190,7 +186,7 @@ class FleiACFAdminColumns
 
                 // make numerical field ordering useful:
                 $field_properties = acf_get_field($this->get_column_field_name($sortby_column));
-                if (isset($field_properties['type']) && $field_properties['type'] == 'number') {
+                if (isset($field_properties['type']) && $field_properties['type'] === 'number') {
                     $sort_order_type = 'meta_value_num';
                 }
 
@@ -216,11 +212,60 @@ class FleiACFAdminColumns
     public function wp_filter_manage_posts_columns($columns)
     {
 
-        if (!empty($this->admin_columns)) {
-            $columns = array_merge($columns, $this->admin_columns);
+        if (empty($this->admin_columns)) {
+            return $columns;
         }
 
-        return $columns;
+        $acf_columns = $this->admin_columns;
+        $position_setting_name = self::ACF_SETTING_NAME . '_position';
+
+        // first we need to make sure we have all field properties and apply the position filter
+        foreach ($acf_columns as $column_name => $field_properties) {
+            if (empty($field_properties)) {
+                $acf_columns[$column_name] = acf_get_field($this->get_column_field_name($column_name)); // refresh field options if they are not set, e.g. after incorrectly applied filter acf/admin_columns/admin_columns
+            }
+
+            $column_position = empty($acf_columns[$column_name][$position_setting_name]) ? 0 : $acf_columns[$column_name][$position_setting_name];
+            $acf_columns[$column_name][$position_setting_name] = apply_filters('acf/admin_columns/column_position', $column_position, $this->get_column_field_name($column_name), $acf_columns[$column_name]);
+        }
+
+        // next we need to sort our columns by their desired position in order to merge them with the existing columns in the right order
+        uasort($acf_columns, static function ($a, $b) use ($position_setting_name) {
+            if (!empty($a[$position_setting_name]) && !empty($b[$position_setting_name])) {
+                return (int)$a[$position_setting_name] - (int)$b[$position_setting_name];
+            }
+
+            if (empty($a[$position_setting_name])) {
+                return -1;
+            }
+
+            if (empty($b[$position_setting_name])) {
+                return 1;
+            }
+
+            return 0;
+        });
+
+        // we'll merge the ACF columns with the existing columns and bring them all in the right order
+        $columns_keys = array_keys($columns);
+        foreach ($acf_columns as $aac_idx => $acf_column) {
+            if (!empty($acf_column[$position_setting_name])) {
+                array_splice($columns_keys, ((int)$acf_column[self::ACF_SETTING_NAME . '_position'] - 1), 0, $aac_idx);
+            } else {
+                $columns_keys[] = $aac_idx;
+            }
+        }
+
+        // finally we prepare all column keys and labels for output
+        $all_columns = array();
+        foreach ($columns_keys as $column_key) {
+            if (array_key_exists($column_key, $acf_columns)) {
+                $all_columns[$column_key] = $acf_columns[$column_key]['label'];
+            } else if (array_key_exists($column_key, $columns)) {
+                $all_columns[$column_key] = $columns[$column_key];
+            }
+        }
+        return $all_columns;
     }
 
     /**
@@ -589,6 +634,23 @@ class FleiACFAdminColumns
                 'name' => self::ACF_SETTING_NAME . '_enabled',
                 'instructions' => 'Enable admin column for this field in post archive pages.',
             ),
+            array(
+                'type' => 'number',
+                'min' => 1,
+                'ui' => 1,
+                'label' => 'Admin Column Position',
+                'name' => self::ACF_SETTING_NAME . '_position',
+                'instructions' => 'Position of the admin column. Leave empty to append to the end.',
+                'conditional_logic' => array(
+                    array(
+                        array(
+                            'field' => self::ACF_SETTING_NAME . '_enabled',
+                            'operator' => '==',
+                            'value' => '1',
+                        ),
+                    ),
+                ),
+            )
         );
 
         foreach ($field_settings as $settings_args) {
@@ -672,7 +734,7 @@ class FleiACFAdminColumns
         if ($return_format === 'value' && !empty($choices[$field_value])) {
             $value = $field_value;
             $label = $choices[$field_value];
-        } else if ($return_format === 'label' && array_search($field_value, $choices)) {
+        } else if ($return_format === 'label' && in_array($field_value, $choices)) {
             $value = array_search($field_value, $choices);
             $label = $field_value;
         } else if ($return_format === 'array' && is_array($field_value) && array_key_exists('value', $field_value) && array_key_exists('label', $field_value)) {
