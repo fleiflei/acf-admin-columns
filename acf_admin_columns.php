@@ -3,7 +3,7 @@
  * Plugin Name: Admin Columns for ACF Fields
  * Plugin URI: https://wordpress.org/plugins/acf-admin-columns/
  * Description: Add columns for your ACF fields to post and taxonomy index pages in the WP backend.
- * Version: 0.2.1
+ * Version: 0.2.2
  * Author: Florian Eickhorst
  * Author URI: http://www.fleimedia.com/
  * License: GPL
@@ -37,16 +37,21 @@ class FleiACFAdminColumns
     private function __construct()
     {
         // ACF related
-        add_action('acf/init', array($this, 'action_add_acf_actions')); // add ACF fields
+        add_action('acf/init', array($this, 'wp_action_add_acf_actions')); // add ACF fields
 
         // WP admin index tables (e.g. "All posts" screens)
-        add_action('parse_request', array($this, 'action_prepare_columns'), 10);
-        add_action('pre_get_terms', array($this, 'action_prepare_columns'), 10);
-        add_action('pre_get_users', array($this, 'action_prepare_columns'), 10);
+        add_action('parse_request', array($this, 'wp_action_prepare_columns'), 10);
+        add_action('pre_get_terms', array($this, 'wp_action_prepare_columns'), 10);
+        add_action('pre_get_users', array($this, 'wp_action_prepare_columns'), 10);
 
-        add_action('pre_get_posts', array($this, 'action_prepare_query_sort'));
+        add_action('pre_get_posts', array($this, 'wp_action_prepare_query_sort'));
 
     }
+
+    /**
+     * Returns the instance of this class
+     * @return FleiACFAdminColumns
+     */
 
     public static function get_instance()
     {
@@ -59,8 +64,12 @@ class FleiACFAdminColumns
 
     /**
      * Add ACF hooks and handle versions
+     *
+     * @hook acf/init
+     * @return void
+     *
      */
-    public function action_add_acf_actions()
+    public function wp_action_add_acf_actions()
     {
         $this->exclude_field_types = apply_filters('acf/admin_columns/exclude_field_types', $this->exclude_field_types);
         $acf_version = acf_get_setting('version');
@@ -85,11 +94,17 @@ class FleiACFAdminColumns
 
     /**
      * Checks which columns to show on the current screen and attaches to the respective WP hooks
+     *
+     * @hook parse_request
+     * @hook pre_get_terms
+     * @hook pre_get_users
+     * @return void
+     *
      */
-    public function action_prepare_columns()
+    public function wp_action_prepare_columns()
     {
-        $screen = $this->is_valid_admin_screen();
-        if (!$this->is_acf_active() || $this->admin_columns || !$screen) {
+        $screen = $this->get_screen();
+        if ($this->admin_columns || !$screen || !$this->is_acf_active()) {
             return;
         }
 
@@ -123,62 +138,65 @@ class FleiACFAdminColumns
 
         }
 
-        $this->admin_columns = apply_filters('acf/admin_columns/admin_columns', $this->admin_columns,  $field_groups);
+        $this->admin_columns = apply_filters('acf/admin_columns/admin_columns', $this->admin_columns, $field_groups);
 
         if (!empty($this->admin_columns)) {
             if ($this->screen_is_post_type_index) {
-                add_filter('manage_' . $screen->post_type . '_posts_columns', array($this, 'filter_manage_posts_columns')); // creates the columns
-                add_filter('manage_' . $screen->id . '_sortable_columns', array($this, 'filter_manage_sortable_columns')); // make columns sortable
-                add_action('manage_' . $screen->post_type . '_posts_custom_column', array($this, 'filter_manage_custom_column'), 10, 2); // outputs the columns values for each post
-                add_filter('posts_join', array($this, 'filter_search_join'));
-                add_filter('posts_where', array($this, 'filter_search_where'));
-                add_filter('posts_distinct', array($this, 'filter_search_distinct'));
+                add_filter('manage_' . $screen->post_type . '_posts_columns', array($this, 'wp_filter_manage_posts_columns')); // creates the columns
+                add_filter('manage_' . $screen->id . '_sortable_columns', array($this, 'wp_filter_manage_sortable_columns')); // make columns sortable
+                add_action('manage_' . $screen->post_type . '_posts_custom_column', array($this, 'wp_filter_manage_custom_column'), 10, 2); // outputs the columns values for each post
+                add_filter('posts_join', array($this, 'wp_filter_search_join'));
+                add_filter('posts_where', array($this, 'wp_filter_search_where'));
+                add_filter('posts_distinct', array($this, 'wp_filter_search_distinct'));
 
             } elseif ($this->screen_is_taxonomy_index) {
-                add_filter('manage_edit-' . $screen->taxonomy . '_columns', array($this, 'filter_manage_posts_columns')); // creates the columns
-                add_filter('manage_' . $screen->taxonomy . '_custom_column', array($this, 'filter_manage_taxonomy_custom_column'), 10, 3); // outputs the columns values for each post
-                add_filter('manage_' . $screen->taxonomy . '_custom_column', array($this, 'filter_manage_custom_column'), 10, 3); // outputs the columns values for each post
+                add_filter('manage_edit-' . $screen->taxonomy . '_columns', array($this, 'wp_filter_manage_posts_columns')); // creates the columns
+                add_filter('manage_' . $screen->taxonomy . '_custom_column', array($this, 'wp_filter_manage_taxonomy_custom_column'), 10, 3); // outputs the columns values for each post
+                add_filter('manage_' . $screen->taxonomy . '_custom_column', array($this, 'wp_filter_manage_custom_column'), 10, 3); // outputs the columns values for each post
             } elseif ($this->screen_is_user_index) {
-                add_filter('manage_users_columns', array($this, 'filter_manage_posts_columns')); // creates the columns
-                add_filter('manage_users_custom_column', array($this, 'filter_manage_custom_column'), 10, 3); // outputs the columns values for each post
+                add_filter('manage_users_columns', array($this, 'wp_filter_manage_posts_columns')); // creates the columns
+                add_filter('manage_users_custom_column', array($this, 'wp_filter_manage_custom_column'), 10, 3); // outputs the columns values for each post
             }
         }
     }
 
     /**
-     * prepares WPs query object when ordering by ACF field
+     * prepares WPs query object when sorting by ACF field
      *
-     * @param $query
+     * @hook pre_get_posts
+     *
+     * @param $query WP_Query
      * @return mixed
      */
-    public function action_prepare_query_sort($query)
+    public function wp_action_prepare_query_sort($query)
     {
 
-        if ($this->is_acf_active() && $this->is_valid_admin_screen() && $query->query_vars && isset($query->query_vars['orderby'])) {
-            $orderby_column = $query->query_vars['orderby'];
+        if ($query->query_vars && isset($query->query_vars['orderby']) && $this->is_acf_active() && $this->get_screen()) {
 
-            if (is_string($orderby_column) && array_key_exists($orderby_column, $this->admin_columns)) {
+            $sortby_column = $query->query_vars['orderby'];
+
+            if (is_string($sortby_column) && array_key_exists($sortby_column, $this->admin_columns)) {
 
                 // this makes sure we sort also when the custom field has never been set on some posts before
                 $meta_query = array(
                     'relation' => 'OR',
-                    array('key' => $this->get_clean_column($orderby_column), 'compare' => 'NOT EXISTS'), // 'NOT EXISTS' needs to go first for proper sorting
-                    array('key' => $this->get_clean_column($orderby_column), 'compare' => 'EXISTS'),
+                    array('key' => $this->get_column_field_name($sortby_column), 'compare' => 'NOT EXISTS'), // 'NOT EXISTS' needs to go first for proper sorting
+                    array('key' => $this->get_column_field_name($sortby_column), 'compare' => 'EXISTS'),
                 );
 
                 $query->set('meta_query', $meta_query);
 
-                $order_type = 'meta_value';
+                $sort_order_type = 'meta_value';
 
                 // make numerical field ordering useful:
-                $field_properties = acf_get_field($this->get_clean_column($orderby_column));
+                $field_properties = acf_get_field($this->get_column_field_name($sortby_column));
                 if (isset($field_properties['type']) && $field_properties['type'] == 'number') {
-                    $order_type = 'meta_value_num';
+                    $sort_order_type = 'meta_value_num';
                 }
 
-                $order_type = apply_filters('acf/admin_columns/sort_order_type', $order_type, $field_properties);
+                $sort_order_type = apply_filters('acf/admin_columns/sort_order_type', $sort_order_type, $field_properties);
 
-                $query->set('orderby', $order_type);
+                $query->set('orderby', $sort_order_type);
             }
         }
 
@@ -186,12 +204,16 @@ class FleiACFAdminColumns
     }
 
     /**
-     * Adds the designated columns to Wordpress admin post list table.
+     * Adds the designated columns to Wordpress admin list table.
      *
-     * @param $columns array passed by Wordpress
+     * @hook manage_{$post_type}_posts_columns
+     * @hook manage_edit-{$taxonomy}_columns
+     * @hook manage_users_columns
+     *
+     * @param $columns array
      * @return array
      */
-    public function filter_manage_posts_columns($columns)
+    public function wp_filter_manage_posts_columns($columns)
     {
 
         if (!empty($this->admin_columns)) {
@@ -202,12 +224,14 @@ class FleiACFAdminColumns
     }
 
     /**
-     * Makes our columns rendered as sortable.
+     * Makes the columns sortable.
      *
-     * @param $columns
-     * @return mixed
+     * @hook manage_{$post_type}_sortable_columns
+     *
+     * @param $columns array
+     * @return array
      */
-    public function filter_manage_sortable_columns($columns)
+    public function wp_filter_manage_sortable_columns($columns)
     {
 
         foreach ($this->admin_columns as $idx => $acol) {
@@ -219,7 +243,20 @@ class FleiACFAdminColumns
         return $columns;
     }
 
-    public function filter_manage_custom_column($arg1, $arg2 = null, $arg3 = null)
+    /**
+     * WP Hook for displaying the field value inside of a columns cell
+     *
+     * @hook manage_{$post_type}_posts_custom_column
+     * @hook manage_{$taxonomy}_custom_column
+     * @hook manage_users_custom_column
+     *
+     * @param $arg1 string
+     * @param $arg2 mixed
+     * @param $arg3 mixed
+     * @return void
+     */
+
+    public function wp_filter_manage_custom_column($arg1, $arg2 = null, $arg3 = null)
     {
 
         $current_filter = current_filter();
@@ -235,7 +272,7 @@ class FleiACFAdminColumns
                 $render_args['post_id'] = $arg3;
                 $echo_value = false;
 
-                $screen = $this->is_valid_admin_screen();
+                $screen = $this->get_screen();
 
                 if ($this->screen_is_taxonomy_index) {
                     $render_args['post_id'] = $screen->taxonomy . '_' . $render_args['post_id'];
@@ -245,10 +282,10 @@ class FleiACFAdminColumns
 
             }
             if (array_key_exists($render_args['column'], $this->admin_columns)) {
-                $clean_column = $this->get_clean_column($render_args['column']);
+                $field_name = $this->get_column_field_name($render_args['column']);
                 $rendered_field_value = $this->render_column_field($render_args);
-                $rendered_field_value = apply_filters_deprecated('acf/admin_columns/column/' . $clean_column, array($rendered_field_value), '0.2.0', 'acf/admin_columns/column/' . $clean_column . '/value');
-                $rendered_field_value = apply_filters_deprecated('acf/admin_columns/column/' . $clean_column . '/value', array($rendered_field_value), '0.2.2', 'acf/admin_columns/render_output');
+                $rendered_field_value = apply_filters_deprecated('acf/admin_columns/column/' . $field_name, array($rendered_field_value), '0.2.0', 'acf/admin_columns/render_output');
+                $rendered_field_value = apply_filters_deprecated('acf/admin_columns/column/' . $field_name . '/value', array($rendered_field_value), '0.2.2', 'acf/admin_columns/render_output');
                 if ($echo_value) {
                     echo $rendered_field_value;
                 } else {
@@ -266,18 +303,18 @@ class FleiACFAdminColumns
      * @param $column
      * @param $post_id
      */
-    public function filter_manage_taxonomy_custom_column($content, $column, $post_id)
+    public function wp_filter_manage_taxonomy_custom_column($content, $column, $post_id)
     {
 
         if (array_key_exists($column, $this->admin_columns)) {
 
-            $clean_column = $this->get_clean_column($column);
+            $field_name = $this->get_column_field_name($column);
 
             $screen = get_current_screen();
             $taxonomy = $screen->taxonomy;
 
             $rendered_field_value = $this->render_column_field(array('column' => $column, 'post_id' => $post_id, 'taxonomy' => $taxonomy));
-            $rendered_field_value = apply_filters_deprecated('acf/admin_columns/column/' . $clean_column, $rendered_field_value, '0.2.2', 'acf/admin_columns/render_output');
+            $rendered_field_value = apply_filters_deprecated('acf/admin_columns/column/' . $field_name, $rendered_field_value, '0.2.2', 'acf/admin_columns/render_output');
 
             $content = $rendered_field_value;
         }
@@ -285,10 +322,18 @@ class FleiACFAdminColumns
         return $content;
     }
 
-    public function filter_search_join($join)
+    /**
+     * WP Hook for joining ACF fields to the search query
+     *
+     * @hook posts_join
+     *
+     * @param $join string
+     * @return string
+     */
+    public function wp_filter_search_join($join)
     {
 
-        if ($this->is_search()) {
+        if ($this->get_search_term()) {
             global $wpdb;
             $join .= ' LEFT JOIN ' . $wpdb->postmeta . ' AS ' . self::COLUMN_NAME_PREFIX . $wpdb->postmeta . ' ON ' . $wpdb->posts . '.ID = ' . self::COLUMN_NAME_PREFIX . $wpdb->postmeta . '.post_id ';
         }
@@ -296,16 +341,25 @@ class FleiACFAdminColumns
         return $join;
     }
 
-    public function filter_search_where($where)
+    /**
+     * WP Hook for searching in ACF fields
+     *
+     * @hook posts_where
+     *
+     * @param $where string
+     * @return string
+     */
+
+    public function wp_filter_search_where($where)
     {
-        if ($this->is_search()) {
+        if ($this->get_search_term()) {
 
             global $wpdb;
 
             $where_column_sql = '';
-            foreach ($this->admin_columns as $admin_column => $description) {
-                $admin_column = $this->get_clean_column($admin_column);
-                $where_column_sql .= " OR (" . self::COLUMN_NAME_PREFIX . $wpdb->postmeta . ".meta_key ='$admin_column' AND " . self::COLUMN_NAME_PREFIX . $wpdb->postmeta . ".meta_value LIKE $1)";
+            foreach ($this->admin_columns as $column => $description) {
+                $column = $this->get_column_field_name($column);
+                $where_column_sql .= " OR (" . self::COLUMN_NAME_PREFIX . $wpdb->postmeta . ".meta_key ='$column' AND " . self::COLUMN_NAME_PREFIX . $wpdb->postmeta . ".meta_value LIKE $1)";
             }
 
             $where = preg_replace(
@@ -318,10 +372,10 @@ class FleiACFAdminColumns
 
     }
 
-    public function filter_search_distinct($where)
+    public function wp_filter_search_distinct($where)
     {
 
-        if ($this->is_search()) {
+        if ($this->get_search_term()) {
             return "DISTINCT";
         }
 
@@ -329,38 +383,46 @@ class FleiACFAdminColumns
     }
 
     /**
-     * Retrieves a field and returns the formatted value based on field type for displaying in "All posts" screen table columns
+     * Renders the field value for a given column
      *
-     * @param $column
-     * @param $post_id
+     * @hook acf/admin_columns/render_output
+     *
+     * @param $args array
      * @return mixed|string
      */
-    public function render_column_field($args = array())
+    public function render_column_field($args)
     {
 
         $column = $args['column'];
         $post_id = isset($args['post_id']) ? $args['post_id'] : false;
 
-        $clean_column = $this->get_clean_column($column);
+        $field_name = $this->get_column_field_name($column);
+        $field_properties = acf_get_field($field_name, $post_id);
 
-        $field_value = get_field($clean_column, $post_id);
+        // field values
+        $field_value = get_field($field_name, $post_id);
         $original_field_value = $field_value;
+
+        // if the field is really empty $field_value should be null
+        if ($original_field_value === false && $field_properties['type'] !== 'true_false') {
+            $field_value = null;
+        }
 
         $render_output = '';
 
-        $field_properties = acf_get_field($clean_column, $post_id);
+
         $field_images = $field_value;
         $preview_item_count = 1;
         $remaining_items_count = 0;
         $render_raw = false;
-        $render_raw = apply_filters_deprecated('acf/admin_columns/column/' . $clean_column . '/render_raw', array($render_raw, $field_properties, $original_field_value, $post_id), '0.2.2', 'acf/admin_columns/render_raw');
+        $render_raw = apply_filters_deprecated('acf/admin_columns/column/' . $field_name . '/render_raw', array($render_raw, $field_properties, $original_field_value, $post_id), '0.2.2', 'acf/admin_columns/render_raw');
         $render_raw = apply_filters('acf/admin_columns/render_raw', $render_raw, $field_properties, $original_field_value, $post_id);
 
         if (empty($field_value) && !empty($field_properties['default_value'])) {
             $field_value = apply_filters('acf/admin_columns/default_value', $field_properties['default_value'], $field_properties, $field_value, $post_id);
         }
 
-        $field_value = apply_filters_deprecated('acf/admin_columns/column/' . $clean_column . '/before_render_value', array($field_value, $field_properties, $post_id), '0.2.2', 'acf/admin_columns/before_render_output');
+        $field_value = apply_filters_deprecated('acf/admin_columns/column/' . $field_name . '/before_render_value', array($field_value, $field_properties, $post_id), '0.2.2', 'acf/admin_columns/before_render_output');
         $field_value = apply_filters('acf/admin_columns/before_render_output', $field_value, $field_properties, $post_id);
 
         if (!$render_raw) {
@@ -391,19 +453,19 @@ class FleiACFAdminColumns
                     break;
                 case 'post_object':
                 case 'relationship':
-                    $p = $field_value;
+                    $related_post = $field_value;
                     if (is_array($field_value) && !empty($field_value)) {
-                        $p = $field_value[0];
+                        $related_post = $field_value[0];
                         $remaining_items_count = count($field_value) - 1;
                     }
-                    if ($p) {
-                        $render_output = '<a href="' . get_edit_post_link($p, false) . '">' . get_the_title($p) . '</a>';
+                    if ($related_post) {
+                        $render_output = '<a href="' . get_edit_post_link($related_post, false) . '">' . get_the_title($related_post) . '</a>';
                     }
                     break;
                 case 'user':
                     if (is_array($field_value) && !empty($field_value)) {
-                        $u = $field_value[0];
-                        $render_output = '<a href="' . get_edit_user_link($u) . '">' . $u['display_name'] . '</a>';
+                        $user = $field_value[0];
+                        $render_output = '<a href="' . get_edit_user_link($user) . '">' . $user['display_name'] . '</a>';
                         $remaining_items_count = count($field_value) - 1;
                     }
                     break;
@@ -418,28 +480,26 @@ class FleiACFAdminColumns
 
                         if (is_array($field_value) && isset($preview_image['ID'])) {
                             $preview_image_id = $preview_image['ID'];
-                        } else if (intval($preview_image) > 0) {
-                            $preview_image_id = intval($preview_image);
+                        } else if ((int)$preview_image > 0) {
+                            $preview_image_id = (int)$preview_image;
                         }
 
-                        if (filter_var($preview_image, FILTER_VALIDATE_URL)) {
+                        if (filter_var($preview_image, FILTER_VALIDATE_URL)) { // is the field return value a url string?
                             $preview_image_url = $preview_image;
-                        } else if ($preview_image_id > 0) {
-                            $preview_image_size = apply_filters('acf/admin_columns/preview_image_size', 'thumbnail', $field_properties, $original_field_value);
+                        } else if ($preview_image_id > 0) { // return value is either image array or id
+                            $preview_image_size = apply_filters('acf/admin_columns/preview_image_size', 'thumbnail', $field_properties, $field_value, $post_id);
                             $img = wp_get_attachment_image_src($preview_image_id, $preview_image_size);
                             if (is_array($img) && isset($img[0])) {
                                 $preview_image_url = $img[0];
                             }
                         }
 
-                        $preview_image_url = apply_filters('acf/admin_columns/preview_image_url', $preview_image_url, $field_properties, $original_field_value);
+                        $preview_image_url = apply_filters('acf/admin_columns/preview_image_url', $preview_image_url, $field_properties, $field_value, $post_id);
 
                         if ($preview_image_url) {
                             $render_output = "<img style='width:100%;height:auto;' src='$preview_image_url'>";
 
-                            if ($field_images) {
-                                $remaining_items_count = count($field_images) - $preview_item_count;
-                            }
+                            $remaining_items_count = count($field_images) - $preview_item_count;
                         }
                     }
                     break;
@@ -473,28 +533,26 @@ class FleiACFAdminColumns
                     $render_output = $field_value;
             }
 
+            // wrap link around URL field value
             $link_wrap_url = apply_filters('acf/admin_columns/link_wrap_url', true, $field_properties, $original_field_value, $post_id);
-
             if ($link_wrap_url && filter_var($render_output, FILTER_VALIDATE_URL)) {
                 $render_output = '<a href="' . $render_output . '">' . $render_output . '</a>';
             }
 
-            // list array entries
+            // convert array entries to column string
             if (is_array($render_output)) {
                 $array_render_separator = apply_filters('acf/admin_columns/array_render_separator', ', ', $field_properties, $original_field_value, $post_id);
                 $render_output = implode($array_render_separator, $render_output);
             }
 
-        }
-
-
-        // default "no value" or "empty" output
-        if (empty($render_output) && !$render_raw && $field_properties['type'] !== 'true_false') {
-            $render_output = apply_filters('acf/admin_columns/no_value_placeholder', '—', $field_properties, $original_field_value, $post_id);
+            // default "no value" or "empty" output
+            if (empty($render_output) && $field_value === null) {
+                $render_output = apply_filters('acf/admin_columns/no_value_placeholder', '—', $field_properties, $original_field_value, $post_id);
+            }
         }
 
         // search term highlighting
-        if ($search_term = $this->is_search()) {
+        if ($search_term = $this->get_search_term()) {
 
             $search_preg_replace_pattern = '<span style="background-color:#FFFF66; color:#000000;">\\0</span>';
             $search_preg_replace_pattern = apply_filters_deprecated('acf/admin_columns/search/highlight_preg_replace_pattern', array($search_preg_replace_pattern, $search_term, $field_properties, $original_field_value, $post_id), '0.2.2', 'acf/admin_columns/highlight_search_term_preg_replace_pattern');
@@ -511,14 +569,14 @@ class FleiACFAdminColumns
     }
 
     /**
-     * Outputs the field within ACF's field setting UI
+     * Renders the field within ACF's field setting UI
+     *
      * @param $field
+     * @return void
+     *
      */
     public function render_field_settings($field)
     {
-
-        $setting_name_enabled = self::ACF_SETTING_NAME . '_enabled';
-        $setting_active = isset($field[$setting_name_enabled]) && !!$field[$setting_name_enabled];
 
         /*
          * General settings switch
@@ -528,7 +586,7 @@ class FleiACFAdminColumns
                 'type' => 'true_false',
                 'ui' => 1,
                 'label' => 'Admin Column',
-                'name' => $setting_name_enabled,
+                'name' => self::ACF_SETTING_NAME . '_enabled',
                 'instructions' => 'Enable admin column for this field in post archive pages.',
             ),
         );
@@ -549,7 +607,11 @@ class FleiACFAdminColumns
         return (function_exists('acf_get_field_groups') && function_exists('acf_get_fields'));
     }
 
-    private function is_valid_admin_screen()
+    /**
+     * Returns the current screen object
+     * @return bool|WP_Screen
+     */
+    private function get_screen()
     {
 
         if (function_exists('get_current_screen') && $screen = get_current_screen()) {
@@ -565,11 +627,15 @@ class FleiACFAdminColumns
         return false;
     }
 
-    private function is_search()
+    /**
+     * Returns the search term if the current screen is a post type index and a search is active
+     * @return bool|string
+     */
+    private function get_search_term()
     {
 
         $search_term = false;
-        if (isset($_GET['s']) && !empty($_GET['s'])) {
+        if (!empty($_GET['s'])) {
             $search_term = $_GET['s'];
         }
 
@@ -578,12 +644,12 @@ class FleiACFAdminColumns
 
     /**
      * Return the "real" ACF field name, without the prefix
-     * @param $dirty_column
+     * @param $colum_name
      * @return mixed
      */
-    private function get_clean_column($dirty_column)
+    private function get_column_field_name($colum_name)
     {
-        return str_replace(self::COLUMN_NAME_PREFIX, '', $dirty_column);
+        return str_replace(self::COLUMN_NAME_PREFIX, '', $colum_name);
     }
 
     /**
