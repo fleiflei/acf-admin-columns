@@ -13,6 +13,10 @@ class FleiACFAdminColumns
 {
 
     const ACF_SETTING_NAME = 'admin_column';
+    const ACF_SETTING_NAME_ENABLED = self::ACF_SETTING_NAME . '_enabled';
+    const ACF_SETTING_NAME_POSITION = self::ACF_SETTING_NAME . '_position';
+    const ACF_SETTING_NAME_WIDTH = self::ACF_SETTING_NAME . '_width';
+
     const COLUMN_NAME_PREFIX = 'acf_';
 
     private static $instance;
@@ -125,7 +129,7 @@ class FleiACFAdminColumns
 
             $fgroup_fields = acf_get_fields($fgroup);
             foreach ($fgroup_fields as $field) {
-                if (!isset($field[self::ACF_SETTING_NAME . '_enabled']) || $field[self::ACF_SETTING_NAME . '_enabled'] == false) {
+                if (!isset($field[self::ACF_SETTING_NAME_ENABLED]) || $field[self::ACF_SETTING_NAME_ENABLED] == false) {
                     continue;
                 }
 
@@ -217,7 +221,6 @@ class FleiACFAdminColumns
         }
 
         $acf_columns = $this->admin_columns;
-        $position_setting_name = self::ACF_SETTING_NAME . '_position';
 
         // first we need to make sure we have all field properties and apply the position filter
         foreach ($acf_columns as $column_name => $field_properties) {
@@ -225,21 +228,21 @@ class FleiACFAdminColumns
                 $acf_columns[$column_name] = acf_get_field($this->get_column_field_name($column_name)); // refresh field options if they are not set, e.g. after incorrectly applied filter acf/admin_columns/admin_columns
             }
 
-            $column_position = empty($acf_columns[$column_name][$position_setting_name]) ? 0 : $acf_columns[$column_name][$position_setting_name];
-            $acf_columns[$column_name][$position_setting_name] = apply_filters('acf/admin_columns/column_position', $column_position, $this->get_column_field_name($column_name), $acf_columns[$column_name]);
+            $column_position = empty($acf_columns[$column_name][self::ACF_SETTING_NAME_POSITION]) ? 0 : $acf_columns[$column_name][self::ACF_SETTING_NAME_POSITION];
+            $acf_columns[$column_name][self::ACF_SETTING_NAME_POSITION] = apply_filters('acf/admin_columns/column_position', $column_position, $this->get_column_field_name($column_name), $acf_columns[$column_name]);
         }
 
         // next we need to sort our columns by their desired position in order to merge them with the existing columns in the right order
-        uasort($acf_columns, static function ($a, $b) use ($position_setting_name) {
-            if (!empty($a[$position_setting_name]) && !empty($b[$position_setting_name])) {
-                return (int)$a[$position_setting_name] - (int)$b[$position_setting_name];
+        uasort($acf_columns, static function ($a, $b) {
+            if (!empty($a[self::ACF_SETTING_NAME_POSITION]) && !empty($b[self::ACF_SETTING_NAME_POSITION])) {
+                return (int)$a[self::ACF_SETTING_NAME_POSITION] - (int)$b[self::ACF_SETTING_NAME_POSITION];
             }
 
-            if (empty($a[$position_setting_name])) {
+            if (empty($a[self::ACF_SETTING_NAME_POSITION]) && !empty($b[self::ACF_SETTING_NAME_POSITION])) {
                 return -1;
             }
 
-            if (empty($b[$position_setting_name])) {
+            if (empty($b[self::ACF_SETTING_NAME_POSITION]) && !empty($a[self::ACF_SETTING_NAME_POSITION])) {
                 return 1;
             }
 
@@ -250,7 +253,7 @@ class FleiACFAdminColumns
         $columns_keys = array_keys($columns);
         foreach ($acf_columns as $aac_idx => $acf_column) {
             if (!empty($acf_column[$position_setting_name])) {
-                array_splice($columns_keys, ((int)$acf_column[self::ACF_SETTING_NAME . '_position'] - 1), 0, $aac_idx);
+                array_splice($columns_keys, ((int)$acf_column[self::ACF_SETTING_NAME_POSITION] - 1), 0, $aac_idx);
             } else {
                 $columns_keys[] = $aac_idx;
             }
@@ -417,6 +420,12 @@ class FleiACFAdminColumns
 
     }
 
+    /**
+     * @hook posts_distinct
+     *
+     * @param $where
+     * @return mixed|string
+     */
     public function wp_filter_search_distinct($where)
     {
 
@@ -429,8 +438,6 @@ class FleiACFAdminColumns
 
     /**
      * Renders the field value for a given column
-     *
-     * @hook acf/admin_columns/render_output
      *
      * @param $args array
      * @return mixed|string
@@ -631,7 +638,7 @@ class FleiACFAdminColumns
                 'type' => 'true_false',
                 'ui' => 1,
                 'label' => 'Admin Column',
-                'name' => self::ACF_SETTING_NAME . '_enabled',
+                'name' => self::ACF_SETTING_NAME_ENABLED,
                 'instructions' => 'Enable admin column for this field in post archive pages.',
             ),
             array(
@@ -639,12 +646,12 @@ class FleiACFAdminColumns
                 'min' => 1,
                 'ui' => 1,
                 'label' => 'Admin Column Position',
-                'name' => self::ACF_SETTING_NAME . '_position',
+                'name' => self::ACF_SETTING_NAME_POSITION,
                 'instructions' => 'Position of the admin column. Leave empty to append to the end.',
                 'conditional_logic' => array(
                     array(
                         array(
-                            'field' => self::ACF_SETTING_NAME . '_enabled',
+                            'field' => self::ACF_SETTING_NAME_ENABLED,
                             'operator' => '==',
                             'value' => '1',
                         ),
