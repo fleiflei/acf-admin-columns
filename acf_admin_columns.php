@@ -157,6 +157,8 @@ class FleiACFAdminColumns
                 add_filter('manage_users_columns', array($this, 'wp_filter_manage_posts_columns')); // creates the columns
                 add_filter('manage_users_custom_column', array($this, 'wp_filter_manage_custom_column'), 10, 3); // outputs the columns values for each post
             }
+
+            add_action('admin_head', array($this, 'wp_action_admin_head')); // add column styling, like column width
         }
     }
 
@@ -437,6 +439,42 @@ class FleiACFAdminColumns
     }
 
     /**
+     * Output column styles to the admin head.
+     *
+     * @hook admin_head
+     *
+     * @return void
+     */
+    public function wp_action_admin_head()
+    {
+
+        $all_column_styles = array();
+
+        foreach ($this->admin_columns as $column => $field_properties) {
+            $column_styles = '';
+
+            $column_width = isset($field_properties[self::ACF_SETTING_NAME_WIDTH]) ? trim($field_properties[self::ACF_SETTING_NAME_WIDTH]) : '';
+            if (!empty($column_width)) {
+                $column_styles .= 'width:' . $column_width . ';';
+            }
+
+            if (!empty($column_styles)) {
+                $all_column_styles[$column] = apply_filters('acf/admin_columns/column_styles', $column_styles, $this->get_column_field_name($column), $field_properties);
+            }
+        }
+
+        if (!empty($all_column_styles)) {
+            echo '<style>';
+            foreach ($all_column_styles as $column => $column_styles) {
+                echo '.column-' . $column . '{' . $column_styles . '}';
+            }
+            echo '</style>';
+        }
+
+    }
+
+
+    /**
      * Renders the field value for a given column
      *
      * @param $args array
@@ -648,6 +686,22 @@ class FleiACFAdminColumns
                 'label' => 'Admin Column Position',
                 'name' => self::ACF_SETTING_NAME_POSITION,
                 'instructions' => 'Position of the admin column. Leave empty to append to the end.',
+                'conditional_logic' => array(
+                    array(
+                        array(
+                            'field' => self::ACF_SETTING_NAME_ENABLED,
+                            'operator' => '==',
+                            'value' => '1',
+                        ),
+                    ),
+                ),
+            ),
+            array(
+                'type' => 'text',
+                'ui' => 1,
+                'label' => 'Admin Column Width',
+                'name' => self::ACF_SETTING_NAME_WIDTH,
+                'instructions' => 'Width of the admin column. Specify as CSS value, e.g. "100px" or "20%". Leave empty to use the default auto width.',
                 'conditional_logic' => array(
                     array(
                         array(

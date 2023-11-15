@@ -6,26 +6,26 @@ Tags: advanced custom fields, acf, admin columns
 Requires at least: 4.6
 Tested up to: 6.4.1
 Stable tag: 0.2.2
-Requires PHP: 5.2.4
+Requires PHP: 5.6.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Date: 10.11.2023
 Version: 0.3.0
 
 
-Allows you to enable columns for your ACF fields in post and taxonomy overviews (e.g. "All Posts") in the Wordpress admin backend. This plugin requires a recent version of plugin "Advanced Custom Fields" (ACF).
+Allows you to enable columns for your ACF fields in post and taxonomy overviews (e.g. "All Posts") in the Wordpress admin backend. This plugin requires the plugin "Advanced Custom Fields" (ACF) to work.
 
 == Description ==
 
 Use this plugin to show ACF fields in the "All Posts", Taxonomy or User table view in the Wordpress admin backend.
 
-Simply enable the new option "Admin Column" in your ACF field settings for any regular field (see exceptions below). Now there will be an extra column for your field shown in any overview of posts, pages, taxonomies or your custom post types or taxonomies (e.g. "All Pages").
+Simply enable the new option "Admin Column" in your ACF field settings for any regular field (see exceptions below), and optionally set the columns position and width. Now there will be an extra column for your field shown in any overview of built-in or custom posts, pages, taxonomies (e.g. "All Pages"), and users.
 
 You can use filters (see below) to control the plugins behaviour even more precisely.
 
 Works on any regular ACF field (see exceptions below).
  
-Compatible with Advanced Custom Fields 5.x & 6.x.
+Compatible with Advanced Custom Fields 5.x and 6.x.
 
 Github: https://github.com/fleiflei/acf-admin-columns
 
@@ -38,10 +38,10 @@ Github: https://github.com/fleiflei/acf-admin-columns
 == Usage: ==
 
 1. Install ACF and this plugin (see below)
-2. In ACF open/create your "field group" within ACF and note the post type that this field group applies to (at the bottom). 
-3. Open any field for editing (see exceptions below).
-4. Enable the "Admin Column" option in the field settings. 
-5. Specify the desired column position (optional).
+2. In ACF open/create a "field group" and open any field for editing (see exceptions below).
+3. Enable the "Admin Column" option in the field settings.
+4. Specify the desired column position (optional).
+5. Specify the desired column width (optional).
 6. Save the field group and go to the "All posts" view of the post type or taxonomy (e.g. "Posts > All Posts", or "Pages > All Pages") and notice the newly added column for your field.
 
 == Excluded ACF Fields ==
