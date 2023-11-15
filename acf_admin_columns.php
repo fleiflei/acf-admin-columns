@@ -226,7 +226,7 @@ class FleiACFAdminColumns
 
         // first we need to make sure we have all field properties and apply the position filter
         foreach ($acf_columns as $column_name => $field_properties) {
-            if (empty($field_properties)) {
+            if (empty($field_properties) || !is_array($field_properties))  {
                 $acf_columns[$column_name] = acf_get_field($this->get_column_field_name($column_name)); // refresh field options if they are not set, e.g. after incorrectly applied filter acf/admin_columns/admin_columns
             }
 

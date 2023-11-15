@@ -9,7 +9,7 @@ Stable tag: 0.2.2
 Requires PHP: 5.6.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Date: 10.11.2023
+Date: 15.11.2023
 Version: 0.3.0
 
 
@@ -269,7 +269,7 @@ Allows you to change the separator for array fields (e.g. repeater, flexible con
 
 **Example:**
 
-Output every array item on a new line, using the <br> tag.
+Output every array item on a new line, using the `<br>` tag.
 
     function my_array_render_separator($array_render_separator, $field_properties, $field_value, $post_id) {
         return "<br>";
@@ -334,6 +334,52 @@ Change which field types should not have the admin column option in the field se
     }
     add_filter('acf/admin_columns/exclude_field_types','my_exclude_field_types');
 
+
+= "acf/admin_columns/column_position" =
+
+Change the column position for a certain field.
+
+**Parameters**
+
+    $column_position - integer with column position
+    $field_name - the ACF field name
+    $field_properties - the ACF field properties
+
+**Example:**
+
+Change the column position for field 'my_field' to 2.
+
+    function my_column_position($column_position, $field_name, $field_properties) {
+        if ($field_name == 'my_field') {
+            return 2;
+        }
+        return $column_position;
+    }
+    add_filter('acf/admin_columns/column_position','my_column_position', 10, 3);
+
+= "acf/admin_columns/column_styles" =
+
+Change the column styles for a column.
+
+**Parameters**
+
+    $column_styles - string with column styles
+    $field_name - the ACF field name
+    $field_properties - the ACF field properties
+
+**Example:**
+
+Change the column width for field 'my_field' to 20% of the screen width and set the max-width of the column to 200px.
+
+    function my_column_styles($column_styles, $field_name, $field_properties) {
+        if ($field_name == 'my_field') {
+            return 'width: 20%; max-width: 200px;';
+        }
+        return $column_styles;
+    }
+    add_filter('acf/admin_columns/column_styles','my_column_styles', 10, 3);
+
+
 == Installation ==
 
 This section describes how to install the plugin and get it working.
@@ -352,9 +398,10 @@ Use the filter "acf/admin_columns/preview_image_size" to change the preview imag
 
 = 0.3.0 =
 
-*Release date: XX.XX.XXXX*
+*Release date: 15.11.2023*
 
 * Improvement: Added column position field setting. This allows you to control the position of the column in the overview. Added new filter "acf/admin_columns/column_position" to change a columns position programmatically.
+* Improvement: Added column width field setting. This allows you to control the width of the column in the overview. Added new filter "acf/admin_columns/column_styles" to change a columns width or other styles programmatically.
 
 = 0.2.2 =
 
