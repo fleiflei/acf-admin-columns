@@ -5,12 +5,12 @@ Donate link: https://www.buymeacoffee.com/flei
 Tags: advanced custom fields, acf, admin columns
 Requires at least: 4.6
 Tested up to: 6.4.1
-Stable tag: 0.2.2
+Stable tag: 0.3.1
 Requires PHP: 5.6.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Date: 15.11.2023
-Version: 0.3.0
+Version: 0.3.1
 
 
 Allows you to enable columns for your ACF fields in post and taxonomy overviews (e.g. "All Posts") in the Wordpress admin backend. This plugin requires the plugin "Advanced Custom Fields" (ACF) to work.
@@ -24,10 +24,12 @@ Simply enable the new option "Admin Column" in your ACF field settings for any r
 You can use filters (see below) to control the plugins behaviour even more precisely.
 
 Works on any regular ACF field (see exceptions below).
- 
+
 Compatible with Advanced Custom Fields 5.x and 6.x.
 
 Github: https://github.com/fleiflei/acf-admin-columns
+
+If you like this plugin please kindly leave your review and feedback here: https://wordpress.org/plugins/admin-columns-for-acf-fields/#reviews
 
 == Screenshots ==
 
@@ -48,20 +50,20 @@ Github: https://github.com/fleiflei/acf-admin-columns
 
 Due to their nature the option "Admin Column" is not shown in ACF for these fields:
 
- - Accordion
- - Clone
- - Flexible Content
- - Google Map
- - Group
- - Message
- - Repeater
- - Tab
+- Accordion
+- Clone
+- Flexible Content
+- Google Map
+- Group
+- Message
+- Repeater
+- Tab
 
 == Filters ==
 
 = "acf/admin_columns/admin_columns" =
 
-Allows you to change which columns are displayed on the current admin screen. 
+Allows you to change which columns are displayed on the current admin screen.
 
 **Parameters**
 
@@ -90,7 +92,7 @@ Change which columns should be sortable. By default, every column is sortable.
 
     $columns - Array of all ACF fields to be shown in current screen.
 
-= "acf/admin_columns/sort_order_type" = 
+= "acf/admin_columns/sort_order_type" =
 
 Change the sort order type for a certain field. By default, most fields are sorted by string comparison. Number fields are ordered by numeric comparison.
 
@@ -134,7 +136,7 @@ Output then length of text field 'my_text_field' instead of its contents.
     }
     add_filter('acf/admin_columns/column/render_output','my_column_value', 10, 4);
 
-= "acf/admin_columns/render_raw" = 
+= "acf/admin_columns/render_raw" =
 
 Output a field value without any formatting. This is useful e.g. for image fields, where you might want to output the raw image url instead of a rendered image tag.
 
@@ -180,7 +182,7 @@ Change the default value for field 'my_field' to 'my default value' if it is emp
     }
     add_filter('acf/admin_columns/default_value','my_default_value', 10, 4);
 
-= "acf/admin_columns/before_render_output" = 
+= "acf/admin_columns/before_render_output" =
 
 Allows you to modify the field value of a certain $field before it is prepared for rendering. This filter is applied before 'acf/admin_columns/column/render_output'.
 
@@ -210,7 +212,7 @@ Change preview image size to "medium"
     }
     add_filter('acf/admin_columns/preview_image_size','my_preview_image_size', 10, 3);
 
-= "acf/admin_columns/preview_image_url" = 
+= "acf/admin_columns/preview_image_url" =
 
 Allows for manipulation of the url of the preview image for image or gallery fields.
 
@@ -233,7 +235,7 @@ Replace preview image of field 'my_image_field' for post ID 123 to a random 100x
     add_filter('acf/admin_columns/preview_image_url','my_preview_image_url', 10, 3);
 
 
-= "acf/admin_columns/link_wrap_url" = 
+= "acf/admin_columns/link_wrap_url" =
 
 Automatically wrap url in link to that url. This is useful e.g. for text fields that contain a url, where you might want to output a link to the url instead of the url itself.
 
@@ -256,7 +258,7 @@ Wrap url in link for text field 'my_link_text_field'.
     }
     add_filter('acf/admin_columns/link_wrap_url','my_link_wrap_url', 10, 4);
 
-= "acf/admin_columns/array_render_separator" = 
+= "acf/admin_columns/array_render_separator" =
 
 Allows you to change the separator for array fields (e.g. repeater, flexible content, gallery). Default value is ", ".
 
@@ -384,7 +386,7 @@ Change the column width for field 'my_field' to 20% of the screen width and set 
 
 This section describes how to install the plugin and get it working.
 
-1. Upload the plugin files to the `/wp-content/plugins/plugin-name` directory, or install the plugin through the WordPress plugins screen directly.
+1. Upload the plugin files to the `/wp-content/plugins/admin-columns-for-acf-fields` directory, or install the plugin through the WordPress plugins screen directly.
 2. Activate the plugin through the 'Plugins' screen in WordPress
 3. Open ACF and enable "Admin Column" in any fields settings section.
 
@@ -395,6 +397,13 @@ This section describes how to install the plugin and get it working.
 Use the filter "acf/admin_columns/preview_image_size" to change the preview image size. See "Filters" section above for details.
 
 == Changelog ==
+
+= 0.3.1 =
+
+*Release date: 17.11.2023*
+
+* Fix: error in column positioning
+* Fix: improved handling of user fields
 
 = 0.3.0 =
 

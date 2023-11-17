@@ -3,7 +3,7 @@
  * Plugin Name: Admin Columns for ACF Fields
  * Plugin URI: https://wordpress.org/plugins/acf-admin-columns/
  * Description: Add columns for your ACF fields to post and taxonomy index pages in the WP backend.
- * Version: 0.3.0
+ * Version: 0.3.1
  * Author: Florian Eickhorst
  * Author URI: http://www.fleimedia.com/
  * License: GPL
@@ -226,7 +226,7 @@ class FleiACFAdminColumns
 
         // first we need to make sure we have all field properties and apply the position filter
         foreach ($acf_columns as $column_name => $field_properties) {
-            if (empty($field_properties) || !is_array($field_properties))  {
+            if (empty($field_properties) || !is_array($field_properties)) {
                 $acf_columns[$column_name] = acf_get_field($this->get_column_field_name($column_name)); // refresh field options if they are not set, e.g. after incorrectly applied filter acf/admin_columns/admin_columns
             }
 
@@ -254,7 +254,7 @@ class FleiACFAdminColumns
         // we'll merge the ACF columns with the existing columns and bring them all in the right order
         $columns_keys = array_keys($columns);
         foreach ($acf_columns as $aac_idx => $acf_column) {
-            if (!empty($acf_column[$position_setting_name])) {
+            if (!empty($acf_column[self::ACF_SETTING_NAME_POSITION])) {
                 array_splice($columns_keys, ((int)$acf_column[self::ACF_SETTING_NAME_POSITION] - 1), 0, $aac_idx);
             } else {
                 $columns_keys[] = $aac_idx;
@@ -553,10 +553,23 @@ class FleiACFAdminColumns
                     }
                     break;
                 case 'user':
-                    if (is_array($field_value) && !empty($field_value)) {
-                        $user = $field_value[0];
-                        $render_output = '<a href="' . get_edit_user_link($user) . '">' . $user['display_name'] . '</a>';
-                        $remaining_items_count = count($field_value) - 1;
+                    if (!empty($field_value)) {
+                        if (!empty($field_properties['multiple'])) {
+                            $remaining_items_count = count($field_value) - 1;
+                            $field_value = $field_value[0];
+                        }
+
+                        if (is_array($field_value) && !empty($field_value['ID'])) {
+                            $user = get_user_by('id', $field_value['ID']);
+                        } elseif ($field_value instanceof \WP_User) {
+                            $user = $field_value;
+                        } elseif ((int)$field_value > 0) {
+                            $user = get_user_by('id', (int)$field_value);
+                        }
+
+                        if (!empty($user)) {
+                            $render_output = '<a href="' . get_edit_user_link($user->ID) . '">' . $user->user_login . (!empty($user->display_name) && $user->user_login !== $user->display_name ? ' (' . $user->display_name . ')' : '') . '</a>';
+                        }
                     }
                     break;
                 case 'image':
