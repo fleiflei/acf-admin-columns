@@ -113,7 +113,7 @@ Change the sort order type for the field 'my_field' to 'meta_value_num' (see htt
     }
     add_filter('acf/admin_columns/sort_order_type','my_sort_order_type', 10, 2);
 
-= "acf/admin_columns/column/render_output" =
+= "acf/admin_columns/render_output" =
 
 Allows you to modify the output of a certain $field in every row of a posts table.
 
@@ -134,7 +134,7 @@ Output then length of text field 'my_text_field' instead of its contents.
         }
         return $rendered_output;
     }
-    add_filter('acf/admin_columns/column/render_output','my_column_value', 10, 4);
+    add_filter('acf/admin_columns/render_output','my_column_value', 10, 4);
 
 = "acf/admin_columns/render_raw" =
 
