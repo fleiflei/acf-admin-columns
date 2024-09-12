@@ -620,6 +620,10 @@ class FleiACFAdminColumns
                         }
                         break;
                     }
+                case 'date_picker':
+                    $date_field = DateTime::createFromFormat($field_properties['return_format'], $field_value);
+                    $render_output = $date_field->format($field_properties['display_format']);
+                    break;    
                 case 'number':
                 case 'true_false':
                 case 'text':
@@ -630,7 +634,6 @@ class FleiACFAdminColumns
                 case 'password':
                 case 'button_group':
                 case 'page_link':
-                case 'date_picker':
                 case 'time_picker':
                 default:
                     $render_output = $field_value;
