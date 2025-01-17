@@ -4,13 +4,13 @@ Contributors: flei
 Donate link: https://www.buymeacoffee.com/flei
 Tags: advanced custom fields, acf, admin columns
 Requires at least: 4.6
-Tested up to: 6.4.1
+Tested up to: 6.7.1
 Stable tag: 0.3.1
 Requires PHP: 5.6.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
-Date: 15.11.2023
-Version: 0.3.1
+Date: 17.01.2025
+Version: 0.3.2
 
 
 Allows you to enable columns for your ACF fields in post and taxonomy overviews (e.g. "All Posts") in the Wordpress admin backend. This plugin requires the plugin "Advanced Custom Fields" (ACF) to work.
@@ -113,7 +113,7 @@ Change the sort order type for the field 'my_field' to 'meta_value_num' (see htt
     }
     add_filter('acf/admin_columns/sort_order_type','my_sort_order_type', 10, 2);
 
-= "acf/admin_columns/column/render_output" =
+= "acf/admin_columns/render_output" =
 
 Allows you to modify the output of a certain $field in every row of a posts table.
 
@@ -134,7 +134,7 @@ Output then length of text field 'my_text_field' instead of its contents.
         }
         return $rendered_output;
     }
-    add_filter('acf/admin_columns/column/render_output','my_column_value', 10, 4);
+    add_filter('acf/admin_columns/render_output','my_column_value', 10, 4);
 
 = "acf/admin_columns/render_raw" =
 
@@ -184,7 +184,7 @@ Change the default value for field 'my_field' to 'my default value' if it is emp
 
 = "acf/admin_columns/before_render_output" =
 
-Allows you to modify the field value of a certain $field before it is prepared for rendering. This filter is applied before 'acf/admin_columns/column/render_output'.
+Allows you to modify the field value of a certain $field before it is prepared for rendering. This filter is applied before 'acf/admin_columns/render_output'.
 
 **Parameters**
 
@@ -397,6 +397,13 @@ This section describes how to install the plugin and get it working.
 Use the filter "acf/admin_columns/preview_image_size" to change the preview image size. See "Filters" section above for details.
 
 == Changelog ==
+
+= 0.3.2 =
+
+*Release date: 17.01.2025*
+
+* Fix: field columns not rendered for users
+* Fix: documentation fix for filter 'acf/admin_columns/column/render_output' (old) -> 'acf/admin_columns/render_output' (new) 
 
 = 0.3.1 =
 

@@ -3,7 +3,7 @@
  * Plugin Name: Admin Columns for ACF Fields
  * Plugin URI: https://wordpress.org/plugins/acf-admin-columns/
  * Description: Add columns for your ACF fields to post and taxonomy index pages in the WP backend.
- * Version: 0.3.1
+ * Version: 0.3.2
  * Author: Florian Eickhorst
  * Author URI: http://www.fleimedia.com/
  * License: GPL
@@ -19,9 +19,9 @@ class FleiACFAdminColumns
 
     const COLUMN_NAME_PREFIX = 'acf_';
 
-    private static $instance;
+    protected static $instance;
 
-    private $exclude_field_types = array(
+    protected $exclude_field_types = array(
         'accordion',
         'clone',
         'flexible_content',
@@ -32,13 +32,13 @@ class FleiACFAdminColumns
         'tab',
     );
 
-    private $admin_columns = array();
+    protected $admin_columns = array();
 
-    private $screen_is_post_type_index = false;
-    private $screen_is_taxonomy_index = false;
-    private $screen_is_user_index = false;
+    protected $screen_is_post_type_index = false;
+    protected $screen_is_taxonomy_index = false;
+    protected $screen_is_user_index = false;
 
-    private function __construct()
+    protected function __construct()
     {
         // ACF related
         add_action('acf/init', array($this, 'wp_action_add_acf_actions')); // add ACF fields
@@ -112,30 +112,33 @@ class FleiACFAdminColumns
             return;
         }
 
-        $field_groups_args = array();
+        $field_group_location = '';
+        $field_group_location_value = null;
 
         if ($this->screen_is_post_type_index) {
-            $field_groups_args['post_type'] = $screen->post_type;
+            $field_group_location = 'post_type';
+            $field_group_location_value = $screen->post_type;
         } elseif ($this->screen_is_taxonomy_index) {
-            $field_groups_args['taxonomy'] = $screen->taxonomy;
+            $field_group_location = 'taxonomy';
+            $field_group_location_value = $screen->taxonomy;
         } elseif ($this->screen_is_user_index) {
-            $field_groups_args['user_form'] = 'all';
+            $field_group_location = 'user_form';
         }
 
-        // get all field groups for the current post type and check every containing field if it should be rendered
-        $field_groups = acf_get_field_groups($field_groups_args);
+        $field_groups = [];
+        foreach (acf_get_field_groups() as $acf_field_group) {
+            if ($this->acf_field_group_has_location_type($acf_field_group['ID'], $field_group_location, $field_group_location_value)) {
+                $field_groups[] = $acf_field_group;
 
-        foreach ($field_groups as $fgroup) {
+                $acf_field_group_fields = acf_get_fields($acf_field_group);
+                foreach ($acf_field_group_fields as $field) {
+                    if (!isset($field[self::ACF_SETTING_NAME_ENABLED]) || $field[self::ACF_SETTING_NAME_ENABLED] == false) {
+                        continue;
+                    }
 
-            $fgroup_fields = acf_get_fields($fgroup);
-            foreach ($fgroup_fields as $field) {
-                if (!isset($field[self::ACF_SETTING_NAME_ENABLED]) || $field[self::ACF_SETTING_NAME_ENABLED] == false) {
-                    continue;
+                    $this->admin_columns[self::COLUMN_NAME_PREFIX . $field['name']] = $field;
                 }
-
-                $this->admin_columns[self::COLUMN_NAME_PREFIX . $field['name']] = $field;
             }
-
         }
 
         $this->admin_columns = apply_filters('acf/admin_columns/admin_columns', $this->admin_columns, $field_groups);
@@ -148,7 +151,6 @@ class FleiACFAdminColumns
                 add_filter('posts_join', array($this, 'wp_filter_search_join'));
                 add_filter('posts_where', array($this, 'wp_filter_search_where'));
                 add_filter('posts_distinct', array($this, 'wp_filter_search_distinct'));
-
             } elseif ($this->screen_is_taxonomy_index) {
                 add_filter('manage_edit-' . $screen->taxonomy . '_columns', array($this, 'wp_filter_manage_posts_columns')); // creates the columns
                 add_filter('manage_' . $screen->taxonomy . '_custom_column', array($this, 'wp_filter_manage_taxonomy_custom_column'), 10, 3); // outputs the columns values for each post
@@ -288,9 +290,7 @@ class FleiACFAdminColumns
             $columns[$idx] = $idx;
         }
 
-        $columns = apply_filters('acf/admin_columns/sortable_columns', $columns);
-
-        return $columns;
+        return apply_filters('acf/admin_columns/sortable_columns', $columns);
     }
 
     /**
@@ -526,7 +526,7 @@ class FleiACFAdminColumns
                 case 'taxonomy':
                     if (is_array($field_value)) {
                         foreach ($field_value as $field_taxonomy) {
-                            $render_output .= $field_taxonomy->name . ' (' . $field_taxonomy->term_id . ')';
+                            $render_output .= $field_taxonomy->name . ' (ID ' . $field_taxonomy->term_id . ')<br>';
                         }
                     }
                     break;
@@ -545,7 +545,7 @@ class FleiACFAdminColumns
                 case 'relationship':
                     $related_post = $field_value;
                     if (is_array($field_value) && !empty($field_value)) {
-                        $related_post = $field_value[0];
+                        $related_post = $field_value[0]; // use the first post as preview
                         $remaining_items_count = count($field_value) - 1;
                     }
                     if ($related_post) {
@@ -738,7 +738,7 @@ class FleiACFAdminColumns
      * checks whether ACF plugin is active
      * @return bool
      */
-    private function is_acf_active()
+    protected function is_acf_active()
     {
         return (function_exists('acf_get_field_groups') && function_exists('acf_get_fields'));
     }
@@ -747,7 +747,7 @@ class FleiACFAdminColumns
      * Returns the current screen object
      * @return bool|WP_Screen
      */
-    private function get_screen()
+    protected function get_screen()
     {
 
         if (function_exists('get_current_screen') && $screen = get_current_screen()) {
@@ -767,7 +767,7 @@ class FleiACFAdminColumns
      * Returns the search term if the current screen is a post type index and a search is active
      * @return bool|string
      */
-    private function get_search_term()
+    protected function get_search_term()
     {
 
         $search_term = false;
@@ -783,7 +783,7 @@ class FleiACFAdminColumns
      * @param $colum_name
      * @return mixed
      */
-    private function get_column_field_name($colum_name)
+    protected function get_column_field_name($colum_name)
     {
         return str_replace(self::COLUMN_NAME_PREFIX, '', $colum_name);
     }
@@ -796,7 +796,7 @@ class FleiACFAdminColumns
      * @param $field_value
      * @return mixed|string
      */
-    private function render_value_label_field($return_format, $choices, $field_value)
+    protected function render_value_label_field($return_format, $choices, $field_value)
     {
         if (empty($field_value)) {
             return $field_value;
@@ -824,6 +824,33 @@ class FleiACFAdminColumns
         }
 
         return $render_output;
+    }
+
+    protected function acf_field_group_has_location_type($post_id, $location, $location_value = null)
+    {
+        if (empty($post_id) || empty($location)) {
+            return false;
+        }
+
+        $field_group = acf_get_field_group($post_id);
+
+        if (empty($field_group['location'])) {
+            return false;
+        }
+
+        foreach ($field_group['location'] as $rule_group) {
+            $params = array_column($rule_group, 'param');
+
+            if (in_array($location, $params, true)) {
+                if ($location_value !== null && !in_array($location_value, array_column($rule_group, 'value'), true)) {
+                    continue;
+                }
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
 }
