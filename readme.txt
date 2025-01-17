@@ -17,6 +17,8 @@ Allows you to enable columns for your ACF fields in post and taxonomy overviews 
 
 == Description ==
 
+This plugin requires the plugin "Advanced Custom Fields" (ACF) to work.
+
 Use this plugin to show ACF fields in the "All Posts", Taxonomy or User table view in the Wordpress admin backend.
 
 Simply enable the new option "Admin Column" in your ACF field settings for any regular field (see exceptions below), and optionally set the columns position and width. Now there will be an extra column for your field shown in any overview of built-in or custom posts, pages, taxonomies (e.g. "All Pages"), and users.
@@ -403,6 +405,7 @@ Use the filter "acf/admin_columns/preview_image_size" to change the preview imag
 *Release date: 17.01.2025*
 
 * Fix: field columns not rendered for users
+* Fix: upwards compatibility with PHP 7.4+ in strip_tags()
 * Fix: documentation fix for filter 'acf/admin_columns/column/render_output' (old) -> 'acf/admin_columns/render_output' (new) 
 
 = 0.3.1 =

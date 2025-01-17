@@ -534,7 +534,7 @@ class FleiACFAdminColumns
                     $render_output = isset($field_value['filename']) ? $field_value['filename'] : ''; // @todo multiple values
                     break;
                 case 'wysiwyg':
-                    $render_output = wp_trim_excerpt(strip_tags($field_value));
+                    $render_output = wp_trim_excerpt(strip_tags(strval($field_value)));
                     break;
                 case 'link':
                     if (is_array($field_value) && isset($field_value['url'])) {
