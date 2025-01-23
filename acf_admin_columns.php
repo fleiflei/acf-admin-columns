@@ -3,7 +3,7 @@
  * Plugin Name: Admin Columns for ACF Fields
  * Plugin URI: https://wordpress.org/plugins/acf-admin-columns/
  * Description: Add columns for your ACF fields to post and taxonomy index pages in the WP backend.
- * Version: 0.3.2
+ * Version: 0.3.3
  * Author: Florian Eickhorst
  * Author URI: http://www.fleimedia.com/
  * License: GPL
@@ -49,6 +49,7 @@ class FleiACFAdminColumns
         add_action('pre_get_users', array($this, 'wp_action_prepare_columns'), 10);
 
         add_action('pre_get_posts', array($this, 'wp_action_prepare_query_sort'));
+        add_action('pre_get_users', array($this, 'wp_action_prepare_query_sort'));
 
     }
 
@@ -158,6 +159,7 @@ class FleiACFAdminColumns
             } elseif ($this->screen_is_user_index) {
                 add_filter('manage_users_columns', array($this, 'wp_filter_manage_posts_columns')); // creates the columns
                 add_filter('manage_users_custom_column', array($this, 'wp_filter_manage_custom_column'), 10, 3); // outputs the columns values for each post
+                add_filter('manage_users_sortable_columns', array($this, 'wp_filter_manage_sortable_columns')); // make columns sortable
             }
 
             add_action('admin_head', array($this, 'wp_action_admin_head')); // add column styling, like column width
@@ -175,7 +177,9 @@ class FleiACFAdminColumns
     public function wp_action_prepare_query_sort($query)
     {
 
-        if ($query->query_vars && isset($query->query_vars['orderby']) && $this->is_acf_active() && $this->get_screen()) {
+        $is_main_query = $query->is_main_query() || $query instanceof WP_User_Query;
+
+        if ($is_main_query && !empty($query->query_vars['orderby']) && $this->is_acf_active() && $this->get_screen()) {
 
             $sortby_column = $query->query_vars['orderby'];
 
