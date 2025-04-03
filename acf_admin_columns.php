@@ -508,7 +508,7 @@ class FleiACFAdminColumns
         $render_raw = apply_filters_deprecated('acf/admin_columns/column/' . $field_name . '/render_raw', array($render_raw, $field_properties, $original_field_value, $post_id), '0.2.2', 'acf/admin_columns/render_raw');
         $render_raw = apply_filters('acf/admin_columns/render_raw', $render_raw, $field_properties, $original_field_value, $post_id);
 
-        if (empty($field_value) && !empty($field_properties['default_value'])) {
+        if (!isset($field_value) && isset($field_properties['default_value'])) {
             $field_value = apply_filters('acf/admin_columns/default_value', $field_properties['default_value'], $field_properties, $field_value, $post_id);
         }
 
