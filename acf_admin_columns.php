@@ -468,7 +468,8 @@ class FleiACFAdminColumns
 
             $column_width = isset($field_properties[self::ACF_SETTING_NAME_WIDTH]) ? trim($field_properties[self::ACF_SETTING_NAME_WIDTH]) : '';
             if (!empty($column_width)) {
-                $column_styles .= 'width:' . $column_width . ';';
+                $column_width_safe = preg_replace( '/[^0-9a-zA-Z.%]/', '', $column_width );
+                $column_styles .= 'width:' . $column_width_safe . ';';
             }
 
             if (!empty($column_styles)) {
@@ -479,7 +480,7 @@ class FleiACFAdminColumns
         if (!empty($all_column_styles)) {
             echo '<style>';
             foreach ($all_column_styles as $column => $column_styles) {
-                echo '.column-' . $column . '{' . $column_styles . '}';
+                echo '.column-' . sanitize_html_class( $column ) . '{' . $column_styles . '}';
             }
             echo '</style>';
         }
@@ -530,16 +531,20 @@ class FleiACFAdminColumns
 
         if (!$render_raw) {
 
+            $render_is_html = false;
+
             switch ($field_properties['type']) {
                 case 'color_picker':
                     if ($field_value) {
-                        $render_output .= '<div style="display:inline-block;height:20px;width:100%;background-color:' . $field_value . ';white-space:nowrap;">' . $field_value . '</div><br>';
+                        $render_is_html = true;
+                        $render_output .= '<div style="display:inline-block;height:20px;width:100%;background-color:' . esc_attr( $field_value ) . ';white-space:nowrap;">' . esc_html( $field_value ) . '</div><br>';
                     }
                     break;
                 case 'taxonomy':
                     if (is_array($field_value)) {
+                        $render_is_html = true;
                         foreach ($field_value as $field_taxonomy) {
-                            $render_output .= $field_taxonomy->name . ' (ID ' . $field_taxonomy->term_id . ')<br>';
+                            $render_output .= esc_html( $field_taxonomy->name ) . ' (ID ' . absint( $field_taxonomy->term_id ) . ')<br>';
                         }
                     }
                     break;
@@ -562,7 +567,8 @@ class FleiACFAdminColumns
                         $remaining_items_count = count($field_value) - 1;
                     }
                     if ($related_post) {
-                        $render_output = '<a href="' . get_edit_post_link($related_post, false) . '">' . get_the_title($related_post) . '</a>';
+                        $render_is_html = true;
+                        $render_output = '<a href="' . esc_url( get_edit_post_link($related_post, false) ) . '">' . esc_html( get_the_title($related_post) ) . '</a>';
                     }
                     break;
                 case 'user':
@@ -581,7 +587,8 @@ class FleiACFAdminColumns
                         }
 
                         if (!empty($user)) {
-                            $render_output = '<a href="' . get_edit_user_link($user->ID) . '">' . $user->user_login . (!empty($user->display_name) && $user->user_login !== $user->display_name ? ' (' . $user->display_name . ')' : '') . '</a>';
+                            $render_is_html = true;
+                            $render_output = '<a href="' . esc_url( get_edit_user_link($user->ID) ) . '">' . esc_html( $user->user_login ) . (!empty($user->display_name) && $user->user_login !== $user->display_name ? ' (' . esc_html( $user->display_name ) . ')' : '') . '</a>';
                         }
                     }
                     break;
@@ -613,7 +620,8 @@ class FleiACFAdminColumns
                         $preview_image_url = apply_filters('acf/admin_columns/preview_image_url', $preview_image_url, $field_properties, $field_value, $post_id);
 
                         if ($preview_image_url) {
-                            $render_output = "<img style='width:100%;height:auto;' src='$preview_image_url'>";
+                            $render_is_html = true;
+                            $render_output = "<img style='width:100%;height:auto;' src='" . esc_url( $preview_image_url ) . "'>";
 
                             $remaining_items_count = count($field_images) - $preview_item_count;
                         }
@@ -623,6 +631,7 @@ class FleiACFAdminColumns
                 case 'checkbox':
                 case 'select':
                     if (!empty($field_value) && isset($field_properties['return_format'])) {
+                        $render_is_html = true; // render_value_label_field escapes its output
                         if ($field_properties['type'] === 'checkbox' || (!empty($field_properties['multiple']))) {
                             $render_output = array();
                             foreach ($field_value as $field_value_item) {
@@ -651,8 +660,14 @@ class FleiACFAdminColumns
 
             // wrap link around URL field value
             $link_wrap_url = apply_filters('acf/admin_columns/link_wrap_url', true, $field_properties, $original_field_value, $post_id);
-            if ($link_wrap_url && filter_var($render_output, FILTER_VALIDATE_URL)) {
-                $render_output = '<a href="' . $render_output . '">' . $render_output . '</a>';
+            if (!$render_is_html && $link_wrap_url && is_string($render_output) && filter_var($render_output, FILTER_VALIDATE_URL)) {
+                $render_is_html = true;
+                $render_output = '<a href="' . esc_url( $render_output ) . '">' . esc_html( $render_output ) . '</a>';
+            }
+
+            // escape plain-text output that wasn't already converted to HTML above
+            if (!$render_is_html && is_string($render_output)) {
+                $render_output = esc_html( $render_output );
             }
 
             // convert array entries to column string
@@ -836,7 +851,7 @@ class FleiACFAdminColumns
             }
         }
 
-        return $render_output;
+        return esc_html( strval( $render_output ) );
     }
 
     protected function acf_field_group_has_location_type($post_id, $location, $location_value = null)
