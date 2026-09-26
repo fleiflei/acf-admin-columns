@@ -852,10 +852,8 @@ class FleiACFAdminColumns
         }
 
         foreach ($field_group['location'] as $rule_group) {
-            $params = array_column($rule_group, 'param');
-
-            if (in_array($location, $params, true)) {
-                if ($location_value !== null && !in_array($location_value, array_column($rule_group, 'value'), true)) {
+            if (!empty($rule_group[0]['param']) && $rule_group[0]['param'] == $location) {
+                if ($location_value !== null && !empty($rule_group[0]['value']) && !in_array($rule_group[0]['value'], ['all', $location_value])) {
                     continue;
                 }
 
