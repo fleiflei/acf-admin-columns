@@ -49,6 +49,7 @@ class FleiACFAdminColumns
         add_action('pre_get_users', array($this, 'wp_action_prepare_columns'), 10);
 
         add_action('pre_get_posts', array($this, 'wp_action_prepare_query_sort'));
+        add_action('pre_get_terms', array($this, 'wp_action_prepare_query_sort'));
         add_action('pre_get_users', array($this, 'wp_action_prepare_query_sort'));
 
     }
@@ -154,8 +155,8 @@ class FleiACFAdminColumns
                 add_filter('posts_distinct', array($this, 'wp_filter_search_distinct'));
             } elseif ($this->screen_is_taxonomy_index) {
                 add_filter('manage_edit-' . $screen->taxonomy . '_columns', array($this, 'wp_filter_manage_posts_columns')); // creates the columns
-                add_filter('manage_' . $screen->taxonomy . '_custom_column', array($this, 'wp_filter_manage_taxonomy_custom_column'), 10, 3); // outputs the columns values for each post
                 add_filter('manage_' . $screen->taxonomy . '_custom_column', array($this, 'wp_filter_manage_custom_column'), 10, 3); // outputs the columns values for each post
+                add_filter('manage_' . $screen->id . '_sortable_columns', array($this, 'wp_filter_manage_sortable_columns')); // make columns sortable
             } elseif ($this->screen_is_user_index) {
                 add_filter('manage_users_columns', array($this, 'wp_filter_manage_posts_columns')); // creates the columns
                 add_filter('manage_users_custom_column', array($this, 'wp_filter_manage_custom_column'), 10, 3); // outputs the columns values for each post
@@ -177,9 +178,11 @@ class FleiACFAdminColumns
     public function wp_action_prepare_query_sort($query)
     {
 
-        $is_main_query = $query->is_main_query() || $query instanceof WP_User_Query;
+        $is_user_query = $query instanceof WP_User_Query;
+        $is_term_query = $query instanceof WP_Term_Query;
+        $is_main_query = $query instanceof WP_Query && $query->is_main_query();
 
-        if ($is_main_query && !empty($query->query_vars['orderby']) && $this->is_acf_active() && $this->get_screen()) {
+        if (($is_user_query || $is_term_query || $is_main_query) && !empty($query->query_vars['orderby']) && $this->is_acf_active() && $this->get_screen()) {
 
             $sortby_column = $query->query_vars['orderby'];
 
@@ -192,7 +195,7 @@ class FleiACFAdminColumns
                     array('key' => $this->get_column_field_name($sortby_column), 'compare' => 'EXISTS'),
                 );
 
-                $query->set('meta_query', $meta_query);
+                $query->query_vars['meta_query'] = $meta_query;
 
                 $sort_order_type = 'meta_value';
 
@@ -204,7 +207,13 @@ class FleiACFAdminColumns
 
                 $sort_order_type = apply_filters('acf/admin_columns/sort_order_type', $sort_order_type, $field_properties);
 
-                $query->set('orderby', $sort_order_type);
+                if ($is_term_query) {
+                    $query->query_vars['meta_query'] = ['relation' => 'OR'];
+                    $query->query_vars['meta_query'][] = ['key' => $this->get_column_field_name($sortby_column), 'type' => 'NUMERIC'];
+                }
+
+
+                $query->query_vars['orderby'] = $sort_order_type;
             }
         }
 
